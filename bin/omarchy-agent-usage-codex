@@ -145,8 +145,20 @@ def scan_pi_sessions():
     if not root.exists():
       continue
     try:
+      # --no-ignore: when $HOME is a git worktree with a whitelist ~/.gitignore
+      # of "*", rg would otherwise skip ~/.pi and ~/.omp sessions (#13207).
       proc = subprocess.Popen(
-        [rg, "--json", "-e", r'"provider"\s*:\s*"openai-codex"', "-e", r'"api"\s*:\s*"openai-codex', str(root)],
+        [
+          rg,
+          "--json",
+          "--no-ignore",
+          "--hidden",
+          "-e",
+          r'"provider"\s*:\s*"openai-codex"',
+          "-e",
+          r'"api"\s*:\s*"openai-codex',
+          str(root),
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,

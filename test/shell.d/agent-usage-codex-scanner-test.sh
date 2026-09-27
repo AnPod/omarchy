@@ -93,6 +93,21 @@ result=$(HOME="$PI_HOME" CODEX_HOME="$PI_HOME/.codex" XDG_DATA_HOME="$PI_HOME/.l
   fail "Codex collector filters pi and omp sessions to Codex providers" "$result"
 pass "Codex collector counts pi and omp subscription usage"
 
+# Dotfiles-style $HOME git repos often ship a whitelist ~/.gitignore of "*".
+# rg honors that unless --no-ignore is set (#13207).
+GITIGNORE_HOME=$(mktemp -d)
+trap 'rm -rf "$TEST_HOME" "$PI_HOME" "$GITIGNORE_HOME"' EXIT
+mkdir -p "$GITIGNORE_HOME/bin" "$GITIGNORE_HOME/.pi/agent/sessions/project"
+cp "$TEST_HOME/bin/codex" "$GITIGNORE_HOME/bin/codex"
+git -C "$GITIGNORE_HOME" init -q
+printf '*\n' >"$GITIGNORE_HOME/.gitignore"
+cp "$PI_HOME/.pi/agent/sessions/project/pi.jsonl" "$GITIGNORE_HOME/.pi/agent/sessions/project/pi.jsonl"
+result=$(HOME="$GITIGNORE_HOME" CODEX_HOME="$GITIGNORE_HOME/.codex" XDG_DATA_HOME="$GITIGNORE_HOME/.local/share" \
+  PATH="$GITIGNORE_HOME/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex")
+[[ $(jq -r '.todayTotalTokens' <<<"$result") == "19" ]] ||
+  fail "Codex collector still counts pi sessions when HOME gitignores everything" "$result"
+pass "Codex collector scans pi sessions even when HOME is a gitignore whitelist"
+
 # A subscription burned entirely through opencode has no native session files;
 # usage must come from opencode's message database, filtered to OpenAI.
 OPENCODE_HOME=$(mktemp -d)
