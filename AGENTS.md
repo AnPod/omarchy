@@ -124,13 +124,15 @@ tests; follow [`agents/skills/visual-verification.md`](agents/skills/visual-veri
 
 This environment is a headless Ubuntu machine for the CLI and shell suites. It is not an Omarchy desktop: Hyprland, Quickshell, and `./test/acceptance` need a disposable VM, as described above.
 
-The agent shell sets `NO_COLOR`. `test/shell.d/launch-about-test.sh` treats that as a request to leave the About logo still, so clear it when running the suites. `OMARCHY_PATH` must name this checkout because one migration test reads it from the environment. Login shells export that and prepend `/workspace/bin`; `/usr/bin/omarchy-cmd-present` also points at the checkout for tests that search only `/usr/bin`.
+The agent shell sets `NO_COLOR`. `test/shell.d/launch-about-test.sh` treats that as a request to leave the About logo still, so clear it when running the suites. `OMARCHY_PATH` must name this checkout because one migration test reads it from the environment. Set `PYTHONDONTWRITEBYTECODE=1` so Python does not drop bytecode under `bin/`, which `test/shell.d/locate-test.sh` reads as text. Login shells export those and prepend `/workspace/bin`. `/usr/bin/omarchy-cmd-present` also points at the checkout for tests that search only `/usr/bin`.
+
+The agent shell is not a terminal. Run the suite that way. A pty makes `test/shell.d/remove-ai-test.sh` treat stdin as a person at the keyboard.
 
 ```bash
-env -u NO_COLOR OMARCHY_PATH=/workspace ./test/all
+env -u NO_COLOR PYTHONDONTWRITEBYTECODE=1 OMARCHY_PATH=/workspace ./test/all
 ```
 
-Packaging tests read sibling clones at `/omarchy-pkgs` and `/omarchy-iso`.
+Packaging tests read sibling clones at `/omarchy-pkgs` and `/omarchy-iso`. `test/shell.d/system-sleep-ownership-migration-test.sh` can fail when an older quarantine symlink sorts first; that is independent of this environment.
 
 # Refresh Pattern
 
