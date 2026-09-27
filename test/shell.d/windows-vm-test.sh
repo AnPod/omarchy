@@ -27,3 +27,15 @@ rg -q 'tag = "-default-opacity"' "$windows_vm_rules" ||
 rg -q 'opacity = "1 1"' "$windows_vm_rules" ||
   fail "Windows VM stays fully opaque"
 pass "Windows VM stays fully opaque"
+
+# chmod 0700 leaves setgid on directories; the container sets ~/Windows to 2777,
+# so relaunch prep must use 00700 to clear it before the exact-700 check.
+rg -q 'chmod 00700 -- "/proc/$BASHPID/fd/$storage_fd" "/proc/$BASHPID/fd/$shared_fd"' "$windows_vm_command" ||
+  fail "caller-mount prep clears setgid when hardening VM folders"
+rg -q 'chmod 00700 -- "$storage" "$shared"' "$windows_vm_command" ||
+  fail "user-mount prep clears setgid when hardening VM folders"
+if rg -q 'chmod 0700 -- "/proc/$BASHPID/fd/$storage_fd"' "$windows_vm_command" ||
+  rg -q 'chmod 0700 -- "$storage" "$shared"' "$windows_vm_command"; then
+  fail "VM folder hardening still uses chmod 0700, which preserves setgid"
+fi
+pass "Windows VM folder hardening clears setgid on relaunch"

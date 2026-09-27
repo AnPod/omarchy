@@ -123,6 +123,18 @@ if setpriv --reuid=1001 --regid=1001 --clear-groups cat "$EXPECTED_SHARED/shared
 fi
 pass "cross-filesystem symlink sources bind by identity and migrated 0700 leaves deny another account"
 
+# The Windows container sets ~/Windows to 2777 (including setgid). GNU chmod
+# with a 4-digit mode leaves an existing setgid bit alone, so a bare 0700
+# would leave 2700 and the exact-700 check would reject every relaunch.
+umount "$EXPECTED_SHARED"
+umount "$EXPECTED_STORAGE"
+chmod 2777 /home/shared-target
+[[ $(command stat -Lc '%a' /home/shared-target) == 2777 ]] || fail "could not seed setgid shared folder"
+with_vm_lock prepare_caller_mounts || fail "root could not clear setgid from the shared folder"
+[[ $(command stat -Lc '%a' /home/shared-target) == 700 ]] || fail "setgid shared folder was not normalized to 700"
+[[ $(command stat -Lc '%u:%a' "$EXPECTED_SHARED") == 1000:700 ]] || fail "shared anchor retained setgid after relaunch prep"
+pass "prepare_caller_mounts clears setgid left by the Windows container"
+
 # Existing production boundary components are never repaired in place when
 # their ownership or write permissions are unsafe. Both the preparation path
 # and the final pre-Docker guard must fail closed without disturbing the binds.
