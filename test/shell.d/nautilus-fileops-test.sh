@@ -9,10 +9,12 @@ screensaver_launch="$ROOT/bin/omarchy-launch-screensaver"
 
 rg -q 'File Operation\(s\| Progress\)' "$system_rules" ||
   fail "Nautilus file-operations windows are matched by title"
-rg -q 'org\\.gnome\\.Nautilus' "$system_rules" ||
+grep -Fq 'org\\.gnome\\.Nautilus' "$system_rules" ||
   fail "Nautilus file-operations windows are matched by class"
 rg -q 'pin = true' "$system_rules" ||
   fail "Nautilus file-operations windows stay pinned while open"
+rg -q 'org.omarchy.screensaver' "$system_rules" ||
+  fail "screensaver window rules are present"
 rg -q 'stay_focused = true' "$system_rules" ||
   fail "screensaver keeps focus against lingering grabs"
 pass "Nautilus file-operations grab is contained by window rules"
