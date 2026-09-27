@@ -29,3 +29,18 @@ omarchy-install-hermes-cli || true
 if omarchy-cmd-missing muse; then
   omarchy-mise-install "http:muse[url=https://api.meta.ai/muse-launcher.sh,bin=muse,version_list_url=https://api.meta.ai/muse-code/channels/muse-stable,version_json_path=.version]" muse
 fi
+
+# Codex 0.157+ treats --approve-for-me as a CLI override that forces embedded
+# mode. Seed auto-review in config.toml so `cy` / omarchy-agent keep the shared
+# background server.
+omarchy-cmd-present python3 && python3 - <<'PY' || true
+from pathlib import Path
+path = Path.home() / ".codex" / "config.toml"
+path.parent.mkdir(parents=True, exist_ok=True)
+text = path.read_text() if path.exists() else ""
+if "approvals_reviewer" not in text:
+    with path.open("a", encoding="utf-8") as fh:
+        if text and not text.endswith("\n"):
+            fh.write("\n")
+        fh.write('approvals_reviewer = "auto_review"\n')
+PY
