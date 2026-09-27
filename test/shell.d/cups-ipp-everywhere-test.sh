@@ -44,9 +44,8 @@ exit 0
 SH
 cat >"$tmp_dir/bin/sudo" <<'SH'
 #!/bin/bash
+# Record the privileged command and run it from PATH so lpadmin is mocked.
 printf '%s\n' "$*" >>"$LPADMIN_LOG"
-# Strip the sudo prefix and run the remaining command through PATH mocks.
-shift
 exec "$@"
 SH
 cat >"$tmp_dir/bin/lpadmin" <<'SH'
