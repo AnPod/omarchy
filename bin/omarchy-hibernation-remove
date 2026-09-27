@@ -51,4 +51,7 @@ sudo rm "$MKINITCPIO_CONF"
 echo "Regenerating initramfs..."
 sudo limine-mkinitcpio
 
+sudo rm -f /etc/UPower/UPower.conf.d/70-omarchy-critical-hibernate.conf
+
 echo "Hibernation removed"
+

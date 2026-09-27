@@ -67,7 +67,20 @@ if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; 
     if [[ -n $RESUME_OFFSET ]]; then
       echo "Fixing empty resume_offset ($RESUME_OFFSET)"
       sudo sed -i "s/resume_offset=\"$/resume_offset=$RESUME_OFFSET\"/" "$RESUME_DROP_IN"
-      if ! $NO_REBUILD; then
+      # Point UPower at Hibernate on critical battery. Stock Auto becomes
+# suspend-then-hibernate at 2% and often hard-powers-off before the image lands.
+UPOWER_CRITICAL_CONF="/etc/UPower/UPower.conf.d/70-omarchy-critical-hibernate.conf"
+if [[ -f $OMARCHY_PATH/default/UPower/UPower.conf.d/70-omarchy-critical-hibernate.conf ]]; then
+  echo "Configuring UPower critical battery action to Hibernate"
+  sudo mkdir -p /etc/UPower/UPower.conf.d
+  if ! install_root_file "$OMARCHY_PATH/default/UPower/UPower.conf.d/70-omarchy-critical-hibernate.conf" \
+    "$UPOWER_CRITICAL_CONF" 0644; then
+    echo "Could not install the UPower critical-hibernate drop-in" >&2
+    exit 1
+  fi
+fi
+
+if ! $NO_REBUILD; then
         sudo limine-mkinitcpio
       fi
     fi
