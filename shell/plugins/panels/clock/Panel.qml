@@ -308,7 +308,7 @@ Panel {
                 // Decorative, and deliberately outside the Style.font.*
                 // scale. Sized so the glyph reads at the cap height of the
                 // date beside it rather than towering over it.
-                font.pixelSize: 48
+                font.pixelSize: Math.max(1, Math.round(48 * Style.fontScale))
               }
 
               Text {
@@ -320,7 +320,7 @@ Panel {
                   ? Style.hoverStateColor(root.contentForeground, Color.accent)
                   : root.contentForeground
                 font.family: root.contentFontFamily
-                font.pixelSize: 52
+                font.pixelSize: Math.max(1, Math.round(52 * Style.fontScale))
                 font.bold: true
               }
             }
