@@ -11,7 +11,26 @@
 
 set -uo pipefail
 
-esp=${OMARCHY_ESP:-/boot/efi}
+# Prefer an explicit override, then ESP_PATH from Limine defaults (written by
+# limine-boot), then the first mounted vfat ESP (/boot/efi or Asahi's /boot).
+if [[ -n ${OMARCHY_ESP:-} ]]; then
+  esp=$OMARCHY_ESP
+else
+  limine_default=${OMARCHY_LIMINE_DEFAULT:-/etc/default/limine}
+  esp=""
+  if [[ -f $limine_default ]]; then
+    esp=$(sed -n 's/^ESP_PATH=["'\'']\?\([^"'\'']*\).*/\1/p' "$limine_default" | tail -1)
+  fi
+  if [[ -z $esp ]]; then
+    for candidate in /boot/efi /boot; do
+      if [[ $(findmnt -no FSTYPE "$candidate" 2>/dev/null) == vfat ]]; then
+        esp=$(findmnt -no TARGET "$candidate" 2>/dev/null)
+        [[ -n $esp ]] && break
+      fi
+    done
+  fi
+  [[ -n $esp ]] || esp=/boot/efi
+fi
 limine_efi=${OMARCHY_LIMINE_EFI:-/usr/share/limine/BOOTAA64.EFI}
 target=$esp/EFI/BOOT/BOOTAA64.EFI
 

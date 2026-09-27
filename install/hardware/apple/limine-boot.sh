@@ -173,7 +173,7 @@ fi
 
 # 6. Limine as the default EFI application, kept current by a pacman hook.
 # From here on the Mac boots Limine: no rollback past this point.
-sudo omarchy-mac-limine-deploy || { limine_boot_fail "could not put Limine on the ESP"; return 0; }
+sudo env OMARCHY_ESP="$esp" omarchy-mac-limine-deploy || { limine_boot_fail "could not put Limine on the ESP"; return 0; }
 update_grub_default_changed=0
 limine_default_created=0
 trap - ERR
