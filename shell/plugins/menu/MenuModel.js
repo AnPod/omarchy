@@ -1,7 +1,55 @@
 function stripJsonc(raw) {
-  return String(raw || "")
-    .replace(/^\s*\/\/[^\n]*(\n|$)/gm, "")
-    .replace(/,(\s*[}\]])/g, "$1")
+  // Strip // line comments and trailing commas, but never touch string
+  // literals — a label like "x, ]y" must keep its comma (#13250).
+  var source = String(raw || "")
+  var out = ""
+  var inString = false
+  var escaped = false
+  var i = 0
+
+  while (i < source.length) {
+    var ch = source[i]
+
+    if (inString) {
+      out += ch
+      if (escaped) {
+        escaped = false
+      } else if (ch === "\\") {
+        escaped = true
+      } else if (ch === "\"") {
+        inString = false
+      }
+      i += 1
+      continue
+    }
+
+    if (ch === "\"") {
+      inString = true
+      out += ch
+      i += 1
+      continue
+    }
+
+    if (ch === "/" && source[i + 1] === "/") {
+      i += 2
+      while (i < source.length && source[i] !== "\n") i += 1
+      continue
+    }
+
+    if (ch === ",") {
+      var j = i + 1
+      while (j < source.length && /[ \t\r\n]/.test(source[j])) j += 1
+      if (source[j] === "}" || source[j] === "]") {
+        i += 1
+        continue
+      }
+    }
+
+    out += ch
+    i += 1
+  }
+
+  return out
 }
 
 function normalizeAliases(value) {

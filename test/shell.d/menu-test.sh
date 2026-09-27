@@ -49,6 +49,12 @@ assertDeepEqual(
   'menu normalizes parsed items'
 )
 
+const commaInLabel = menu.parseMenuJsonc(JSON.stringify({
+  items: { 'demo.item': { label: 'x, ]y', action: 'true' } }
+}))
+assertEqual(commaInLabel[0]?.label, 'x, ]y', 'menu keeps commas inside JSON string labels')
+
+
 const user = [
   menu.normalizeItem('style.theme', { label: 'Theme picker', aliases: ['theme', 'colors'], action: 'custom-theme' }),
   menu.normalizeItem('tools', { label: 'Tools' })
