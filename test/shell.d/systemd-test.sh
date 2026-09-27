@@ -6,8 +6,11 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 service="$ROOT/default/systemd/user/bt-agent.service"
 
-grep -Fx 'ExecCondition=/usr/bin/systemctl is-active --quiet bluetooth.service' "$service" >/dev/null
-pass "bt-agent skips when bluetooth.service is inactive"
+grep -Fx 'ExecStartPre=/usr/bin/systemctl is-active --quiet bluetooth.service' "$service" >/dev/null
+pass "bt-agent retries when bluetooth.service is not yet active"
+
+grep -Fx 'After=dbus.socket bluetooth.service' "$service" >/dev/null
+pass "bt-agent orders itself after bluetooth.service"
 
 grep -Fx 'Restart=on-failure' "$service" >/dev/null
 pass "bt-agent still restarts after runtime failures"
