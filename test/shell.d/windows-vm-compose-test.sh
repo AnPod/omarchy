@@ -69,6 +69,15 @@ grep -q 'PROTECT: "Y"' "$COMPOSE" || fail "web console is not password protected
 grep -q -- '- /:/' "$COMPOSE" && fail "compose contains host-root bind"
 pass "writer emits fixed anchors bound to exact private source inodes"
 
+# Container leaves setgid on ~/Windows; user prep must clear it on relaunch.
+unmount_all
+chmod 2777 "$HOME/Windows"
+[[ $(stat -Lc '%a' "$HOME/Windows") == 2777 ]] || fail "could not seed setgid shared folder"
+prepare_user_mount_sources || fail "user prep rejected a setgid shared folder"
+[[ $(stat -Lc '%a' "$HOME/Windows") == 700 ]] || fail "user prep did not clear setgid from shared folder"
+[[ $(stat -Lc '%a' "$HOME/.windows") == 700 ]] || fail "user prep left storage off 700"
+pass "user mount prep clears setgid left by the Windows container"
+
 # Input cannot widen a mount or compose field.
 rm -f "$COMPOSE"
 write 4G 2 64G 'x -v /:/h' p UTC 2>/dev/null && fail "malicious username accepted"
