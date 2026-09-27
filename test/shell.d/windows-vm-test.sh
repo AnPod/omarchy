@@ -30,12 +30,24 @@ pass "Windows VM stays fully opaque"
 
 # chmod 0700 leaves setgid on directories; the container sets ~/Windows to 2777,
 # so relaunch prep must use 00700 to clear it before the exact-700 check.
-rg -q 'chmod 00700 -- "/proc/$BASHPID/fd/$storage_fd" "/proc/$BASHPID/fd/$shared_fd"' "$windows_vm_command" ||
+rg -q 'chmod 00700 -- "/proc/\$BASHPID/fd/\$storage_fd" "/proc/\$BASHPID/fd/\$shared_fd"' "$windows_vm_command" ||
   fail "caller-mount prep clears setgid when hardening VM folders"
-rg -q 'chmod 00700 -- "$storage" "$shared"' "$windows_vm_command" ||
+rg -q 'chmod 00700 -- "\$storage" "\$shared"' "$windows_vm_command" ||
   fail "user-mount prep clears setgid when hardening VM folders"
-if rg -q 'chmod 0700 -- "/proc/$BASHPID/fd/$storage_fd"' "$windows_vm_command" ||
-  rg -q 'chmod 0700 -- "$storage" "$shared"' "$windows_vm_command"; then
+if rg -q 'chmod 0700 -- "/proc/\$BASHPID/fd/\$storage_fd"' "$windows_vm_command" ||
+  rg -q 'chmod 0700 -- "\$storage" "\$shared"' "$windows_vm_command"; then
   fail "VM folder hardening still uses chmod 0700, which preserves setgid"
 fi
 pass "Windows VM folder hardening clears setgid on relaunch"
+
+# Document the GNU chmod quirk the hardening sites rely on: a 4-digit mode
+# leaves setgid on directories, while a leading 0 clears it.
+setgid_dir=$(mktemp -d)
+chmod 2777 "$setgid_dir"
+[[ $(stat -c %a "$setgid_dir") == 2777 ]] || fail "could not seed setgid directory"
+chmod 0700 -- "$setgid_dir"
+[[ $(stat -c %a "$setgid_dir") == 2700 ]] || fail "chmod 0700 unexpectedly cleared setgid"
+chmod 00700 -- "$setgid_dir"
+[[ $(stat -c %a "$setgid_dir") == 700 ]] || fail "chmod 00700 did not clear setgid"
+rmdir "$setgid_dir"
+pass "GNU chmod 00700 clears directory setgid; 0700 does not"
