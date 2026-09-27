@@ -26,6 +26,12 @@ omarchy-update-requires-free-space
 [[ ${1:-} != "-y" ]] || export OMARCHY_UPDATE_UNATTENDED=1
 
 if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
+  # One sudo prompt covers prune, snapshot, keyring, pacman, migrations, and
+  # orphan removal instead of re-asking on every step (#13404).
+  # Re-install the stay-awake EXIT trap after sourcing: keepalive replaces it.
+  source omarchy-sudo-keepalive
+  trap 'kill ${SUDO_KEEPALIVE_PID:-0} 2>/dev/null; omarchy-update-stay-awake stop' EXIT
+
   # Before the snapshot: the cache is on the snapshotted subvolume, so pruning
   # after it frees nothing until that snapshot ages out.
   omarchy-update-pkg-prune
@@ -58,6 +64,7 @@ if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
   # reboot can terminate this process before its EXIT trap gets a chance to
   # remove the persistent Stay Awake marker.
   omarchy-update-stay-awake stop
+  kill ${SUDO_KEEPALIVE_PID:-0} 2>/dev/null || true
   trap - EXIT
 
   omarchy-update-restart

@@ -83,6 +83,8 @@ for command in \
 done
 write_stub omarchy-update-available 'exit 1'
 write_stub pkexec 'exec "$@"'
+write_stub omarchy-sudo-keepalive ':'
+write_stub sudo 'exit 0'
 
 set +e
 TEST_AVAILABLE_BYTES=$((9 * 1024 * 1024 * 1024)) \

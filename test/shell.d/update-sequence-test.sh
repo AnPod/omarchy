@@ -41,6 +41,13 @@ STUB
   chmod +x "$stub_bin/$step"
 done
 
+# Sourced by omarchy-update before the step chain; keep sleep loops out of tests.
+cat >"$stub_bin/omarchy-sudo-keepalive" <<'STUB'
+#!/bin/bash
+:
+STUB
+chmod +x "$stub_bin/omarchy-sudo-keepalive"
+
 # OMARCHY_UPDATE_LOGGED stands in for the script(1) wrapper the update re-execs
 # itself under; the stubbed lock reports itself already held.
 run_update() {
