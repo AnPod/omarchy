@@ -10,10 +10,6 @@ trap 'rm -rf "$tmpdir"' EXIT
 home="$tmpdir/home"
 stub_bin="$tmpdir/bin"
 mkdir -p "$home" "$stub_bin"
-fake_tool_bin="$tmpdir/fake-tool-bin"
-printf '#!/bin/bash\nexit 0\n' >"$fake_tool_bin"
-chmod +x "$fake_tool_bin"
-export OMARCHY_MISE_FAKE_BIN="$fake_tool_bin"
 
 # Stands in for the real mise so a generated wrapper can be run and asked what
 # arguments it passed on.
@@ -25,14 +21,6 @@ for arg in "$@"; do
   printf '\t%s' "$arg" >>"$OMARCHY_MISE_TEST_LOG"
 done
 printf '\n' >>"$OMARCHY_MISE_TEST_LOG"
-
-# `which` must return a real binary path that is not the stub, or the new
-# wrapper exits instead of PATH-recursing into itself.
-if [[ $1 == which ]]; then
-  printf '%s\n' "$OMARCHY_MISE_FAKE_BIN"
-  exit 0
-fi
-exit 0
 SH
 chmod +x "$stub_bin/mise"
 
@@ -108,13 +96,45 @@ fi
 
 pass "an escaping command name removes nothing outside ~/.local/bin"
 
-# The old stub used `mise x … -- bin`, which PATH-falls-back to the stub itself
-# when the tool is missing and forks until the machine stalls (#13177).
+# `mise x … -- bin` falls back to PATH when the tool has no matching binary, which
+# re-executes this stub. The per-command guard must fail fast instead (#13177).
 install_wrapper missing-tool missing-tool >/dev/null
 [[ -x $home/.local/bin/missing-tool ]] || fail "missing-tool wrapper is written"
-grep -Fq 'mise which' "$home/.local/bin/missing-tool" ||
-  fail "wrapper resolves the binary with mise which instead of PATH fallback"
-if grep -Eq 'exec mise x' "$home/.local/bin/missing-tool"; then
-  fail "wrapper still uses mise x PATH fallback that can recurse"
+grep -Fq '_OMARCHY_MISE_GUARD_MISSING_TOOL' "$home/.local/bin/missing-tool" ||
+  fail "wrapper exports a per-command re-entry guard"
+grep -Fq 'exec mise x' "$home/.local/bin/missing-tool" ||
+  fail "wrapper still runs the tool through mise x after the guard"
+
+# Simulate PATH fallback: mise x re-invokes the stub. Without the guard this
+# forks until the process table fills; with it the second entry exits 127.
+cat >"$stub_bin/mise" <<'SH'
+#!/bin/bash
+printf 'mise' >>"$OMARCHY_MISE_TEST_LOG"
+for arg in "$@"; do
+  printf '\t%s' "$arg" >>"$OMARCHY_MISE_TEST_LOG"
+done
+printf '\n' >>"$OMARCHY_MISE_TEST_LOG"
+if [[ $1 == x ]]; then
+  shift
+  while (($#)) && [[ $1 != -- ]]; do shift; done
+  (($#)) && shift
+  exec "$1" "${@:2}"
 fi
-pass "wrapper does not recurse through PATH when the tool binary is missing"
+SH
+chmod +x "$stub_bin/mise"
+
+log="$tmpdir/recurse.log"
+: >"$log"
+set +e
+OMARCHY_MISE_TEST_LOG="$log" PATH="$home/.local/bin:$stub_bin:$PATH" \
+  timeout 2s "$home/.local/bin/missing-tool" --version >"$tmpdir/recurse.out" 2>"$tmpdir/recurse.err"
+status=$?
+set -e
+((status == 127)) ||
+  fail "re-entry exits 127 instead of recursing" "status=$status err=$(cat "$tmpdir/recurse.err")"
+grep -Fq 'mise could not provide' "$tmpdir/recurse.err" ||
+  fail "re-entry names the missing tool" "$(cat "$tmpdir/recurse.err")"
+# use + one recursive x that re-enters; a runaway would fill the log.
+(($(grep -c '^mise' "$log") <= 3)) ||
+  fail "re-entry does not keep forking mise" "$(cat "$log")"
+pass "wrapper fails fast instead of recursing through PATH"

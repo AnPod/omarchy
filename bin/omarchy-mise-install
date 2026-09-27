@@ -44,6 +44,10 @@ case "$bin" in
   *) bin_arg="\"$bin\"" ;;
 esac
 
+# Named after the command so a tool that shells out to a different wrapped tool
+# is not mistaken for recursion into itself.
+guard="_OMARCHY_MISE_GUARD_$(printf '%s' "$command" | tr -c 'A-Za-z0-9_' '_' | tr '[:lower:]' '[:upper:]')"
+
 # These tools install and upgrade on first run, so mise's release cooldown would
 # hold a new version back for days after it ships. Exported rather than set on
 # the install line alone, so resolving the version to execute agrees with the
@@ -51,17 +55,17 @@ esac
 rm -f "$HOME/.local/bin/$command"
 cat >"$HOME/.local/bin/$command" <<EOF
 #!/bin/bash
+# mise resolves the command below by PATH when the tool does not provide it,
+# which finds this stub again. Fail fast rather than recursing until the machine
+# runs out of processes.
+if [ -n "\$$guard" ]; then
+  printf '%s: mise could not provide "%s" from tool "%s" (is it installed?)\\n' "$command" "$bin" "$package" >&2
+  exit 127
+fi
+export $guard=1
 export MISE_MINIMUM_RELEASE_AGE=0
 mise use -g --quiet $package_arg || exit 1
-# Resolve the installed binary by absolute path. \`mise x … -- bin\` falls back
-# to PATH when the tool has no matching binary, which re-executes this stub
-# (in ~/.local/bin) until the machine stalls.
-bin_path=\$(mise which -t $package_arg -- $bin_arg 2>/dev/null) || bin_path=\$(mise which $bin_arg 2>/dev/null) || true
-if [[ -n \$bin_path && -x \$bin_path && \$bin_path != "\$0" ]]; then
-  exec "\$bin_path" "\$@"
-fi
-echo "omarchy-mise-install: could not find $bin_arg after installing $package_arg" >&2
-exit 1
+exec mise x $package_arg -- $bin_arg "\$@"
 EOF
 
 chmod +x "$HOME/.local/bin/$command"
