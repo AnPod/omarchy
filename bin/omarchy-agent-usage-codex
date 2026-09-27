@@ -544,10 +544,19 @@ def fetch_codex_rpc():
     rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "omarchy-agent-usage", "version": "1"}}, timeout=8)
     proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
     proc.stdin.flush()
-    account_msg = rpc_request(proc, 2, "account/read", timeout=4)
-    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=4)
 
-    account = (account_msg.get("result") or {}).get("account") or {}
+    # rateLimits first: account/read is only a fallback plan label, and on some
+    # machines app-server never answers it while rateLimits always does. A
+    # shared try around both used to discard good limits whenever account/read
+    # timed out (issues #13266 / #13425).
+    limits_msg = rpc_request(proc, 2, "account/rateLimits/read", timeout=10)
+    account = {}
+    try:
+      account_msg = rpc_request(proc, 3, "account/read", timeout=4)
+      account = (account_msg.get("result") or {}).get("account") or {}
+    except Exception:
+      pass
+
     limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
     plan = limits.get("planType") or account.get("planType") or account.get("type") or ""
     result["tierLabel"] = str(plan) if plan else ""
