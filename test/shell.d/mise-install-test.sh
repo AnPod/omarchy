@@ -95,3 +95,26 @@ fi
   fail "an escaping command name removes nothing outside ~/.local/bin"
 
 pass "an escaping command name removes nothing outside ~/.local/bin"
+
+# A missing tool executable causes mise x to fall back to a PATH lookup,
+# which hits the wrapper again. The wrapper must break recursion rather than
+# forking indefinitely.
+cat >"$stub_bin/mise" <<'SH'
+#!/bin/bash
+
+if [[ $1 == "x" ]]; then
+  # mise x <package> -- <bin> "$@" -> shift past x, <package>, --
+  shift 3
+  exec "$@"
+fi
+exit 0
+SH
+
+err="$tmpdir/recurse.err"
+status=0
+PATH="$stub_bin:$home/.local/bin:$PATH" "$home/.local/bin/playwright" 2>"$err" || status=$?
+(( status == 127 )) || fail "recursing wrapper exits 127" "exit: $status"
+grep -Fq "omarchy-mise-install: 'playwright' recursed" "$err" ||
+  fail "recursing wrapper explains why it stopped" "$(cat "$err")"
+
+pass "a wrapper stops recursion when mise falls back to PATH"
