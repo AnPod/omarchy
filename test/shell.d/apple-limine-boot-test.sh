@@ -23,6 +23,9 @@ cat >"$stub_bin/findmnt" <<'SH'
 #!/bin/bash
 case "$*" in
   "-no TARGET $TEST_ESP") echo "$TEST_ESP" ;;
+  "-no FSTYPE /boot/efi") exit 1 ;;
+  "-no FSTYPE /boot") [[ ${TEST_ASAHI_BOOT_ESP:-0} == 1 ]] && echo vfat && exit 0; exit 1 ;;
+  "-no TARGET /boot") [[ ${TEST_ASAHI_BOOT_ESP:-0} == 1 ]] && echo "$TEST_ESP" && exit 0; exit 1 ;;
   "-no UUID /") echo mounted-root ;;
   *) exit 1 ;;
 esac
@@ -204,3 +207,25 @@ run || fail "the leaf activates Limine without GRUB installed"
 grep -q '^/+Omarchy$' "$esp/limine.conf" || fail "the menu is written without GRUB"
 ! grep -q '^update-grub$' "$calls" || fail "no GRUB regeneration is attempted" "$(cat "$calls")"
 pass "an image without GRUB activates Limine on its own"
+
+# Stock Asahi mounts the ESP at /boot (vfat), not /boot/efi. Without OMARCHY_ESP
+# the leaf must discover that mount and still activate Limine.
+rm -f "$etc/update-grub" "$esp/limine.conf" "$test_tmp/boot/grub/grub-aa64.efi"
+printf 'GRUB image\n' >"$esp/EFI/BOOT/BOOTAA64.EFI"
+printf '#!/bin/bash\nexit 0\n' >"$stub_bin/grub-probe"
+printf '#!/bin/bash\nexit 0\n' >"$stub_bin/grub-mkconfig"
+chmod +x "$stub_bin/grub-probe" "$stub_bin/grub-mkconfig"
+: >"$calls"
+TEST_CALLS="$calls" TEST_ESP="$esp" TEST_UPDATE_GRUB_DEFAULT="$etc/update-grub" TEST_LIMINE_DEFAULT="$etc/limine" \
+  TEST_ASAHI_BOOT_ESP=1 \
+  OMARCHY_PATH="$ROOT" OMARCHY_LIMINE_EFI="$test_tmp/share/limine/BOOTAA64.EFI" \
+  OMARCHY_GRUB_DEFAULT="$etc/grub" OMARCHY_UPDATE_GRUB_DEFAULT="$etc/update-grub" OMARCHY_LIMINE_DEFAULT="$etc/limine" \
+  OMARCHY_GRUB_TARGET="$test_tmp/boot/grub/grub-aa64.efi" OMARCHY_LIMINE_BOOT_HOOKS_DIR="$etc/boot/hooks/pre.d" \
+  OMARCHY_PACMAN_HOOKS_DIR="$etc/pacman.d/hooks" OMARCHY_SYSTEMD_DIR="$etc/systemd/system" \
+  OMARCHY_LIMINE_GATE="$test_tmp/limine.enabled" OMARCHY_FSTAB="$etc/fstab" \
+  OMARCHY_MACHINE_ID="$etc/machine-id" \
+  PATH="$stub_bin:$PATH" bash -c "source '$leaf'" ||
+  fail "the leaf activates Limine when the ESP is mounted at /boot"
+[[ $(cat "$esp/EFI/BOOT/BOOTAA64.EFI") == "LIMINE v2" ]] || fail "Asahi /boot ESP still receives Limine"
+grep -q '^/+Omarchy$' "$esp/limine.conf" || fail "Asahi /boot ESP still gets an Omarchy menu"
+pass "Asahi /boot ESP is discovered without OMARCHY_ESP"

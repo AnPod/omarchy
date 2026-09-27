@@ -4,22 +4,35 @@
 # Limine there. The Asahi update-grub (run by the asahi-scripts pacman hook on
 # every kernel update) is retargeted to a file under /boot/grub so it never
 # writes over Limine; GRUB itself is no longer part of the boot. Limine's
-# configuration is Omarchy's (an ESP at /boot/efi, the kernel command line
-# derived from GRUB's defaults file by omarchy-mac-limine-cmdline before every
-# rebuild), and the x86 tooling does the rest: limine-update builds the UKI
-# with the aarch64 systemd-stub and writes the entries, limine-snapper-sync
-# the snapshot entries. Only a menu that already boots the kernel replaces
-# GRUB in the U-Boot slot; a pacman hook keeps the ESP's Limine current,
-# since the limine package's own hook deploys nothing on aarch64. Gated on
-# /var/lib/omarchy/limine.enabled (shipped by the image). Every step is
-# idempotent.
+# configuration is Omarchy's (an ESP at /boot/efi on most images, or /boot on
+# a stock Asahi install, the kernel command line derived from GRUB's defaults
+# file by omarchy-mac-limine-cmdline before every rebuild), and the x86 tooling
+# does the rest: limine-update builds the UKI with the aarch64 systemd-stub and
+# writes the entries, limine-snapper-sync the snapshot entries. Only a menu that
+# already boots the kernel replaces GRUB in the U-Boot slot; a pacman hook keeps
+# the ESP's Limine current, since the limine package's own hook deploys nothing
+# on aarch64. Gated on /var/lib/omarchy/limine.enabled (shipped by the image).
+# Every step is idempotent.
 omarchy-hw-apple-silicon || return 0
 [[ ${OMARCHY_MAC_IMAGE_BUILD:-} != 1 ]] || return 0
 
 gate=${OMARCHY_LIMINE_GATE:-/var/lib/omarchy/limine.enabled}
 [[ -e $gate ]] || return 0
 
-esp=${OMARCHY_ESP:-/boot/efi}
+# Asahi mounts the ESP at /boot; the x86-shaped image uses /boot/efi. Prefer an
+# explicit override, then the first mounted vfat candidate.
+if [[ -n ${OMARCHY_ESP:-} ]]; then
+  esp=$OMARCHY_ESP
+else
+  esp=""
+  for candidate in /boot/efi /boot; do
+    if [[ $(findmnt -no FSTYPE "$candidate" 2>/dev/null) == vfat ]]; then
+      esp=$(findmnt -no TARGET "$candidate" 2>/dev/null)
+      [[ -n $esp ]] && break
+    fi
+  done
+  [[ -n $esp ]] || esp=/boot/efi
+fi
 limine_efi=${OMARCHY_LIMINE_EFI:-/usr/share/limine/BOOTAA64.EFI}
 limine_conf_source=${OMARCHY_LIMINE_CONF_SOURCE:-${OMARCHY_PATH:-/usr/share/omarchy}/default/limine/limine.conf}
 grub_default=${OMARCHY_GRUB_DEFAULT:-/etc/default/grub}
