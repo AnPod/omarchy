@@ -83,14 +83,12 @@ if omarchy-pkg-missing libfprint-git fprintd usbutils; then
   sudo pacman -S --needed --noconfirm --ask 4 libfprint-git fprintd usbutils
 fi
 
-# Enroll first fingerprint
-echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"
-echo -e "Keep moving the finger around on sensor until the process completes.\n"
+has_enrolled_prints() {
+  # fprintd-list prints "Fingerprints for user …:" then " - #N: finger" lines.
+  fprintd-list "$USER" 2>/dev/null | grep -qE '^[[:space:]]*-[[:space:]]'
+}
 
-if sudo fprintd-enroll "$USER"; then
-  echo -e "\e[32m\nFingerprint enrolled successfully!\e[0m"
-
-  # Verify
+configure_fingerprint_auth() {
   echo -e "\nNow let's verify that it's working correctly.\n"
   if fprintd-verify; then
     # PAM comes last, once a print is enrolled and verified. Detection only
@@ -102,9 +100,33 @@ if sudo fprintd-enroll "$USER"; then
     setup_lock_fingerprint_pam
     echo -e "\e[32m\nPerfect! Fingerprint authentication is now configured.\e[0m"
     echo "You can use your fingerprint for sudo, polkit, and lock screen (Super + Ctrl + L)."
-  else
-    echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
+    return 0
   fi
+  echo -e "\e[31m\nVerification failed. You may want to try enrolling again.\e[0m"
+  return 1
+}
+
+# Re-running after remove-then-setup (or a prior enroll) still needs PAM. Offer
+# to keep existing prints so enroll-duplicate cannot block configuration.
+if has_enrolled_prints; then
+  echo -e "\e[32m\nA fingerprint is already enrolled for $USER.\e[0m"
+  if gum confirm "Skip enrollment and configure fingerprint authentication now?"; then
+    configure_fingerprint_auth
+    exit $?
+  fi
+fi
+
+# Enroll first fingerprint
+echo -e "\e[32m\nLet's setup your right index finger as the first fingerprint.\e[0m"
+echo -e "Keep moving the finger around on sensor until the process completes.\n"
+
+if sudo fprintd-enroll "$USER"; then
+  echo -e "\e[32m\nFingerprint enrolled successfully!\e[0m"
+  configure_fingerprint_auth
+elif has_enrolled_prints; then
+  # enroll-duplicate (and similar) exit non-zero even when prints already exist.
+  echo -e "\e[33m\nEnrollment reported a failure, but fingerprints are already on file.\e[0m"
+  configure_fingerprint_auth
 else
   echo -e "\e[31m\nEnrollment failed. Please try again.\e[0m"
   exit 1
