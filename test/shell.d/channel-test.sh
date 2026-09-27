@@ -108,6 +108,8 @@ run_channel stable
 assert_log_line $'refresh\tstable' "stable refreshes the stable pacman channel"
 assert_log_line $'sudo\tenv\tOMARCHY_UPDATE_PACMAN=1\tpacman\t-S\t--needed\t--noconfirm\t--ask\t4\tomarchy\tomarchy-settings' "stable installs stable Omarchy packages"
 assert_log_line $'unlink\t--no-reboot' "stable restores the package-backed Omarchy path without an early reboot prompt"
+# channel-set only passes -y when stdin is non-TTY (or already unattended);
+# this suite runs without a TTY, so the update stub still sees -y (#13416).
 assert_log_line $'update\t-y\tOMARCHY_PATH=/usr/share/omarchy' "stable runs the normal update pipeline from the package-backed path"
 if grep -q $'^state\tset\treboot-required$' "$log_file"; then
   fail "stable does not require reboot when already package-backed" "$(cat "$log_file")"

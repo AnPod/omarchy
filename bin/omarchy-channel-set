@@ -96,4 +96,10 @@ if [[ -z $dev_checkout ]]; then
   fi
 fi
 
-omarchy-update -y
+# -y suppresses reboot prompts. Keep prompts when a person is at a TTY;
+# stay unattended for non-interactive callers and nested unattended updates (#13416).
+if [[ ! -t 0 || -n ${OMARCHY_UPDATE_UNATTENDED:-} ]]; then
+  omarchy-update -y
+else
+  omarchy-update
+fi
