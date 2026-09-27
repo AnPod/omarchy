@@ -51,6 +51,9 @@ for command in \
 done
 write_stub omarchy-update-available 'exit 1'
 write_stub pkexec 'exec "$@"'
+# Sourced by omarchy-update; keep the real helper's sleep loop out of tests.
+write_stub omarchy-sudo-keepalive ':'
+write_stub sudo 'exit 0'
 
 # omarchy-update should hold the lock before snapshotting, so a second update
 # cannot even enter its pre-update snapshot.
