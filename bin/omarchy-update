@@ -30,7 +30,7 @@ if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
   # orphan removal instead of re-asking on every step (#13404).
   # Re-install the stay-awake EXIT trap after sourcing: keepalive replaces it.
   source omarchy-sudo-keepalive
-  trap 'kill ${SUDO_KEEPALIVE_PID:-0} 2>/dev/null; omarchy-update-stay-awake stop' EXIT
+  trap 'if (( ${SUDO_KEEPALIVE_PID:-0} > 0 )); then kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true; fi; omarchy-update-stay-awake stop' EXIT
 
   # Before the snapshot: the cache is on the snapshotted subvolume, so pruning
   # after it frees nothing until that snapshot ages out.
@@ -64,7 +64,9 @@ if [[ ${1:-} == "-y" ]] || omarchy-update-confirm; then
   # reboot can terminate this process before its EXIT trap gets a chance to
   # remove the persistent Stay Awake marker.
   omarchy-update-stay-awake stop
-  kill ${SUDO_KEEPALIVE_PID:-0} 2>/dev/null || true
+  if (( ${SUDO_KEEPALIVE_PID:-0} > 0 )); then
+    kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+  fi
   trap - EXIT
 
   omarchy-update-restart
