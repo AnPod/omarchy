@@ -23,5 +23,11 @@ case $ACTION in
     ;;
 esac
 
-omarchy-toggle-bar "$ACTION"
+# omarchy-toggle-bar on/off means show/hide (bar-off flag has opposite polarity).
+case $ACTION in
+  on) bar_action=off ;;
+  off) bar_action=on ;;
+esac
+
+omarchy-toggle-bar "$bar_action"
 omarchy-hyprland-toggle window-no-gaps "$ACTION"
