@@ -26,6 +26,11 @@ while read -r request; do
       jq -cn --argjson id "$id" '{id: $id, result: {}}'
       ;;
     account/read)
+      # app-server on some setups never answers account/read; the silent
+      # account/read run below proves the limits survive that silence.
+      if [[ ${CODEX_SILENT_ACCOUNT:-0} == 1 ]]; then
+        continue
+      fi
       jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
       ;;
     account/rateLimits/read)
@@ -603,3 +608,12 @@ result=$(HOME="$INTERRUPTED_HOME" CODEX_HOME="$INTERRUPTED_HOME/.codex" XDG_CACH
 [[ $(jq -r '.todayTotalTokens' <<<"$result") == "9" ]] ||
   fail "Codex collector does not reuse a snapshot from an interrupted scan" "$result"
 pass "Codex collector does not cache an interrupted opencode scan"
+
+# app-server that never answers account/read must not cost the record its
+# limits: account/read is optional label fallback (omacom/omarchy#13266).
+result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" CODEX_ARGS_FILE="$TEST_HOME/codex-args" XDG_DATA_HOME="$TEST_HOME/.local/share" \
+  PATH="$TEST_HOME/bin:$PATH" CODEX_SILENT_ACCOUNT=1 "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+
+[[ $(jq -r '.usageStatusText' <<<"$result") == "" ]] ||
+  fail "silent account/read does not surface an error to the panel" "$result"
+pass "Codex collector keeps limits when app-server never answers account/read"

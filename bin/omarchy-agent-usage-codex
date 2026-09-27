@@ -544,14 +544,25 @@ def fetch_codex_rpc():
     rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "omarchy-agent-usage", "version": "1"}}, timeout=8)
     proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
     proc.stdin.flush()
+
     # codex app-server responses routinely take ~2s and can spike past 4s
     # under load; a too-tight timeout throws away the whole refresh's data
     # (omacom/omarchy#13425).
-    account_msg = rpc_request(proc, 2, "account/read", timeout=10)
-    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=10)
-
-    account = (account_msg.get("result") or {}).get("account") or {}
+    # rateLimits/read is the payload that matters and answers reliably;
+    # account/read is only a fallback label source, and on some setups the
+    # app-server never answers it at all (omacom/omarchy#13266). Ask for the
+    # limits first and keep account/read optional: its silence must not drop
+    # the limits that did come back.
+    limits_msg = rpc_request(proc, 2, "account/rateLimits/read", timeout=10)
     limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
+
+    account = {}
+    try:
+      account_msg = rpc_request(proc, 3, "account/read", timeout=4)
+      account = (account_msg.get("result") or {}).get("account") or {}
+    except Exception:
+      pass
+
     plan = limits.get("planType") or account.get("planType") or account.get("type") or ""
     result["tierLabel"] = str(plan) if plan else ""
 
