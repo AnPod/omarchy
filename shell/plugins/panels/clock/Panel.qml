@@ -305,10 +305,9 @@ Panel {
                   ? Style.hoverStateColor(root.contentForeground, Color.accent)
                   : root.contentForeground
                 font.family: root.contentFontFamily
-                // Decorative, and deliberately outside the Style.font.*
-                // scale. Sized so the glyph reads at the cap height of the
-                // date beside it rather than towering over it.
-                font.pixelSize: 48
+                // Decorative relative to Style.font, but still scaled with
+                // fontScale so it fits when [font] base-size shrinks the card.
+                font.pixelSize: Math.round(48 * Style.fontScale)
               }
 
               Text {
@@ -320,8 +319,12 @@ Panel {
                   ? Style.hoverStateColor(root.contentForeground, Color.accent)
                   : root.contentForeground
                 font.family: root.contentFontFamily
-                font.pixelSize: 52
+                font.pixelSize: Math.round(52 * Style.fontScale)
                 font.bold: true
+                // Keep long month names inside the scaled card width.
+                fontSizeMode: Text.HorizontalFit
+                width: Math.max(1, panel.fittedContentWidth(Style.space(560)) - Style.space(22) - Math.round(48 * Style.fontScale) - Style.space(24))
+                elide: Text.ElideNone
               }
             }
 
