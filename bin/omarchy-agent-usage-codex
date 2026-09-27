@@ -544,8 +544,11 @@ def fetch_codex_rpc():
     rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "omarchy-agent-usage", "version": "1"}}, timeout=8)
     proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
     proc.stdin.flush()
-    account_msg = rpc_request(proc, 2, "account/read", timeout=4)
-    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=4)
+    # codex app-server responses routinely take ~2s and can spike past 4s
+    # under load; a too-tight timeout throws away the whole refresh's data
+    # (omacom/omarchy#13425).
+    account_msg = rpc_request(proc, 2, "account/read", timeout=10)
+    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=10)
 
     account = (account_msg.get("result") or {}).get("account") or {}
     limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
