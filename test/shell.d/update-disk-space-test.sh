@@ -218,6 +218,7 @@ set -e
 pass "ESP guard skips when there is no UKI to size against"
 
 set +e
+mkdir -p "$esp_tree/EFI/Linux"
 truncate -s 300M "$esp_tree/EFI/Linux/omarchy_linux.efi"
 output=$(TEST_ESP_PATH="/" run_free_space)
 status=$?
