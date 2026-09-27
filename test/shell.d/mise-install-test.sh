@@ -10,6 +10,10 @@ trap 'rm -rf "$tmpdir"' EXIT
 home="$tmpdir/home"
 stub_bin="$tmpdir/bin"
 mkdir -p "$home" "$stub_bin"
+fake_tool_bin="$tmpdir/fake-tool-bin"
+printf '#!/bin/bash\nexit 0\n' >"$fake_tool_bin"
+chmod +x "$fake_tool_bin"
+export OMARCHY_MISE_FAKE_BIN="$fake_tool_bin"
 
 # Stands in for the real mise so a generated wrapper can be run and asked what
 # arguments it passed on.
@@ -21,6 +25,14 @@ for arg in "$@"; do
   printf '\t%s' "$arg" >>"$OMARCHY_MISE_TEST_LOG"
 done
 printf '\n' >>"$OMARCHY_MISE_TEST_LOG"
+
+# `which` must return a real binary path that is not the stub, or the new
+# wrapper exits instead of PATH-recursing into itself.
+if [[ $1 == which ]]; then
+  printf '%s\n' "$OMARCHY_MISE_FAKE_BIN"
+  exit 0
+fi
+exit 0
 SH
 chmod +x "$stub_bin/mise"
 
@@ -95,3 +107,14 @@ fi
   fail "an escaping command name removes nothing outside ~/.local/bin"
 
 pass "an escaping command name removes nothing outside ~/.local/bin"
+
+# The old stub used `mise x … -- bin`, which PATH-falls-back to the stub itself
+# when the tool is missing and forks until the machine stalls (#13177).
+install_wrapper missing-tool missing-tool >/dev/null
+[[ -x $home/.local/bin/missing-tool ]] || fail "missing-tool wrapper is written"
+grep -Fq 'mise which' "$home/.local/bin/missing-tool" ||
+  fail "wrapper resolves the binary with mise which instead of PATH fallback"
+if grep -Eq 'exec mise x' "$home/.local/bin/missing-tool"; then
+  fail "wrapper still uses mise x PATH fallback that can recurse"
+fi
+pass "wrapper does not recurse through PATH when the tool binary is missing"
