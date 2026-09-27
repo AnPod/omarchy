@@ -540,8 +540,11 @@ Panel {
             color: root.bar.foreground
             font.family: root.bar.fontFamily
             // Decorative condition emoji; intentionally larger than the
-            // Style.font.* scale's displayLarge (28).
-            font.pixelSize: 64
+            // Style.font.* scale's displayLarge (28), but scaled with
+            // Style.fontScale like the card around it (space()-based width),
+            // so the hero shrinks with the card instead of overflowing it
+            // at smaller base sizes (omacom/omarchy#13381).
+            font.pixelSize: Math.max(1, Math.round(64 * Style.fontScale))
           }
 
           Row {
@@ -555,8 +558,9 @@ Panel {
               color: root.bar.foreground
               font.family: root.bar.fontFamily
               // Hero temperature read-out; deliberately oversized, outside
-              // the Style.font.* scale.
-              font.pixelSize: 56
+              // the Style.font.* scale but scaled with the card — see the
+              // emoji above (omacom/omarchy#13381).
+              font.pixelSize: Math.max(1, Math.round(56 * Style.fontScale))
               font.bold: true
             }
             Text {
