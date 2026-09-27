@@ -49,9 +49,12 @@ assertDeepEqual(
   'menu normalizes parsed items'
 )
 
-const commaInLabel = menu.parseMenuJsonc(JSON.stringify({
-  items: { 'demo.item': { label: 'x, ]y', action: 'true' } }
-}))
+// A naive /,(\s*[}\]])/g stripper would eat the comma in "x, ]y" (#13250).
+const commaInLabel = menu.parseMenuJsonc(`{
+  "items": {
+    "demo.item": { "label": "x, ]y", "action": "true", },
+  },
+}`)
 assertEqual(commaInLabel[0]?.label, 'x, ]y', 'menu keeps commas inside JSON string labels')
 
 
