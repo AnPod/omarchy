@@ -37,6 +37,7 @@ run_logged "$OMARCHY_INSTALL/hardware/apple/fix-t2.sh"
 run_logged "$OMARCHY_INSTALL/hardware/apple/fix-brcmfmac-supplicant.sh"
 
 run_logged "$OMARCHY_INSTALL/hardware/lenovo/fix-yoga-pro7-bass-speakers.sh"
+run_logged "$OMARCHY_INSTALL/hardware/lenovo/fix-thinkpad-bluetooth-hotkey.sh"
 
 run_logged "$OMARCHY_INSTALL/hardware/fix-bcm43xx.sh"
 run_logged "$OMARCHY_INSTALL/hardware/fix-surface-keyboard.sh"
@@ -44,4 +45,3 @@ run_logged "$OMARCHY_INSTALL/hardware/fix-yt6801-ethernet-adapter.sh"
 run_logged "$OMARCHY_INSTALL/hardware/fix-tuxedo-backlight.sh"
 run_logged "$OMARCHY_INSTALL/hardware/speaker-tuning.sh"
 run_logged "$OMARCHY_INSTALL/hardware/pacman.sh"
-run_logged "$OMARCHY_INSTALL/hardware/thinkpad-hotkey.sh"
