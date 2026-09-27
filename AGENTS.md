@@ -120,6 +120,18 @@ development session; see [`agents/skills/acceptance-tests.md`](agents/skills/acc
 Visual changes must be verified in the running UI in addition to automated
 tests; follow [`agents/skills/visual-verification.md`](agents/skills/visual-verification.md).
 
+# Cursor Cloud specific instructions
+
+This environment is a headless Ubuntu machine for the CLI and shell suites. It is not an Omarchy desktop: Hyprland, Quickshell, and `./test/acceptance` need a disposable VM, as described above.
+
+The agent shell sets `NO_COLOR`. `test/shell.d/launch-about-test.sh` treats that as a request to leave the About logo still, so clear it when running the suites. `OMARCHY_PATH` must name this checkout because one migration test reads it from the environment. Login shells export that and prepend `/workspace/bin`; `/usr/bin/omarchy-cmd-present` also points at the checkout for tests that search only `/usr/bin`.
+
+```bash
+env -u NO_COLOR OMARCHY_PATH=/workspace ./test/all
+```
+
+Packaging tests read sibling clones at `/omarchy-pkgs` and `/omarchy-iso`.
+
 # Refresh Pattern
 
 To copy a default config to user config with automatic backup:
