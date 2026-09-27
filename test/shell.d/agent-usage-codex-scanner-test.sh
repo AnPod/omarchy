@@ -603,3 +603,42 @@ result=$(HOME="$INTERRUPTED_HOME" CODEX_HOME="$INTERRUPTED_HOME/.codex" XDG_CACH
 [[ $(jq -r '.todayTotalTokens' <<<"$result") == "9" ]] ||
   fail "Codex collector does not reuse a snapshot from an interrupted scan" "$result"
 pass "Codex collector does not cache an interrupted opencode scan"
+
+# account/read may never answer while rateLimits/read always does (issue #13266).
+# Limits must still be returned instead of "Codex limits unavailable".
+HANG_HOME=$(mktemp -d)
+trap 'rm -rf "$TEST_HOME" "$PI_HOME" "$HANG_HOME"' EXIT
+mkdir -p "$HANG_HOME/bin" "$HANG_HOME/.codex/sessions/$(date +%Y/%m/%d)"
+cp "$session" "$HANG_HOME/.codex/sessions/$(date +%Y/%m/%d)/rollout.jsonl"
+cat >"$HANG_HOME/bin/codex" <<'HANG'
+#!/bin/bash
+while read -r request; do
+  id=$(jq -r '.id // empty' <<<"$request")
+  method=$(jq -r '.method // empty' <<<"$request")
+  case "$method" in
+    initialize)
+      jq -cn --argjson id "$id" '{id: $id, result: {}}'
+      ;;
+    account/read)
+      # Never answer — the collector must still surface rate limits.
+      sleep 30
+      ;;
+    account/rateLimits/read)
+      jq -cn --argjson id "$id" \
+        '{id: $id, result: {rateLimits: {planType: "plus", primary: {usedPercent: 12, windowDurationMins: 10080, resetsAt: 1893456000}}}}'
+      ;;
+  esac
+done
+HANG
+chmod +x "$HANG_HOME/bin/codex"
+
+result=$(HOME="$HANG_HOME" CODEX_HOME="$HANG_HOME/.codex" XDG_DATA_HOME="$HANG_HOME/.local/share" \
+  PATH="$HANG_HOME/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+
+[[ $(jq -r '.usageStatusText // empty' <<<"$result") != "Codex limits unavailable" ]] ||
+  fail "Codex collector keeps limits when account/read hangs" "$result"
+[[ $(jq -r '.limits|length' <<<"$result") == "1" ]] ||
+  fail "Codex collector returns rateLimits when account/read hangs" "$result"
+[[ $(jq -r '.tierLabel' <<<"$result") == "plus" ]] ||
+  fail "Codex collector uses planType from rateLimits when account/read hangs" "$result"
+pass "Codex collector keeps limits when account/read hangs"
