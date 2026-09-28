@@ -78,3 +78,83 @@ Before writing ANY window rules, you MUST fetch the current documentation from t
 DO NOT rely on cached or memorized window rule syntax. The format has changed multiple times and using outdated syntax will cause errors or unexpected behavior.
 
 Window rules go in `~/.config/hypr/hyprland.lua` or a required Lua module. Prefer Omarchy's `o.window(match, rules)` helper — see examples in `$OMARCHY_PATH/default/hypr/windows.lua`.
+
+## Window close vs. app termination
+
+On Hyprland 0.56+, [`hl.dsp.window.close()`](https://github.com/hyprwm/Hyprland/blob/main/docs/hyprctl.1.rst) is the window-close dispatcher. From a terminal, ask Hyprland to close the focused window with:
+
+```bash
+hyprctl dispatch "hl.dsp.window.close()"
+```
+
+A close request is not the same as force-terminating the application. An app may remain running if it has another window or background work.
+
+By default, SUPER+W and SUPER+Q are each explicitly bound to `hl.dsp.window.close()`, so either shortcut closes the focused window. Rebinding one shortcut affects only that shortcut; it does not change the other shortcut, the title-bar X button, or every other close action. To keep both shortcuts using the window-close action, configure each one explicitly.
+
+For Keet installed from Flathub, inspect the focused window class using Hyprland's [`repl`](https://wiki.hypr.land/Configuring/Advanced-and-Cool/Using-hyprctl/):
+
+```bash
+hyprctl repl 'hl.get_active_window().class'
+```
+
+The returned Hyprland class is used for window matching and is not necessarily the Flatpak application ID. Keet's [Flathub application ID](https://flathub.org/en/apps/io.keet.Keet) is `io.keet.Keet`.
+
+First close the focused Keet window normally:
+
+```bash
+hyprctl dispatch "hl.dsp.window.close()"
+```
+
+If Keet remains running afterward and you deliberately want to stop its Flatpak app instance, run:
+
+```bash
+flatpak kill io.keet.Keet
+```
+
+This may also close Keet's other windows. Keep the ordinary Hyprland close behavior for other apps.
+
+### Optional: force-stop Keet from SUPER+W
+
+To deliberately make SUPER+W force-stop Keet after requesting the normal window close, first focus Keet and run `hyprctl repl 'hl.get_active_window().class'`. Copy the exact returned class into `KEET_CLASS` below; do not assume it matches the Flatpak application ID.
+
+Create the script directory, then create `~/.config/hypr/scripts/close-window`:
+
+```bash
+mkdir -p "$HOME/.config/hypr/scripts"
+```
+
+```bash
+#!/bin/bash
+
+KEET_CLASS=""
+window_class=$(hyprctl activewindow -j 2>/dev/null | jq -r '.class // empty' 2>/dev/null) || window_class=""
+
+hyprctl dispatch "hl.dsp.window.close()" || exit 1
+
+if [[ -n "$KEET_CLASS" && -n "$window_class" && "$window_class" == "$KEET_CLASS" ]]; then
+  flatpak kill io.keet.Keet
+fi
+```
+
+Set `KEET_CLASS` to the class you captured, then make the script executable:
+
+```bash
+chmod +x "$HOME/.config/hypr/scripts/close-window"
+```
+
+In `~/.config/hypr/bindings.lua`, replace only the default SUPER+W binding with the script's direct path:
+
+```lua
+o.rebind("SUPER + W", "Close window", os.getenv("HOME") .. "/.config/hypr/scripts/close-window")
+```
+
+The script captures the focused window's class before asking Hyprland to close it. A failed or empty class query cannot trigger `flatpak kill`; every class other than the explicitly configured Keet class gets only the ordinary window close. For a matching Keet window, pressing SUPER+W force-stops the `io.keet.Keet` Flatpak instance after the close request and may close its other windows too. SUPER+Q keeps its default ordinary close behavior unless separately rebound, and the title-bar X is unaffected.
+
+Validate the Lua binding after saving:
+
+```bash
+hyprctl reload
+hyprctl configerrors
+```
+
+To restore the default SUPER+W close, remove this `o.rebind("SUPER + W", ...)` line from `~/.config/hypr/bindings.lua`, then run `hyprctl reload` and `hyprctl configerrors` again.
