@@ -48,12 +48,17 @@ esac
 # hold a new version back for days after it ships. Exported rather than set on
 # the install line alone, so resolving the version to execute agrees with the
 # one just installed.
+#
+# Exec the absolute path from `mise which --tool` rather than the bare bin name:
+# when ~/.local/bin precedes mise's shims, `mise x -- $bin` resolves back to
+# this wrapper and loops forever in the same PID (#13090).
 rm -f "$HOME/.local/bin/$command"
 cat >"$HOME/.local/bin/$command" <<EOF
 #!/bin/bash
 export MISE_MINIMUM_RELEASE_AGE=0
 mise use -g --quiet $package_arg || exit 1
-exec mise x $package_arg -- $bin_arg "\$@"
+bin_path=\$(mise which --tool $package_arg $bin_arg) || exit 1
+exec mise x $package_arg -- "\$bin_path" "\$@"
 EOF
 
 chmod +x "$HOME/.local/bin/$command"
