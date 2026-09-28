@@ -116,8 +116,20 @@ fi
 
 omarchy-shell shell rescanPlugins >/dev/null
 
+# Only claim a restore when the source is actually enabled again. Clones of an
+# already-disabled source never flip it on, so "Restored …" would be a lie
+# (#13507).
 if [[ -n $cloned_from && $was_enabled == "true" ]]; then
-  echo "Restored $cloned_from."
+  source_enabled=""
+  shell_plugins=$(omarchy-shell shell listPlugins 2>/dev/null || true)
+  if [[ -n $shell_plugins ]]; then
+    source_enabled=$(jq -r --arg id "$cloned_from" '
+      .[] | select(.id == $id) | .enabled
+    ' <<<"$shell_plugins")
+  fi
+  if [[ $source_enabled == "true" ]]; then
+    echo "Restored $cloned_from."
+  fi
 elif [[ $was_enabled == "true" ]]; then
   echo "Plugin was enabled and was unloaded from omarchy-shell."
 fi
