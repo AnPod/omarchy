@@ -12,6 +12,12 @@ pass "bt-agent skips when bluetooth.service is inactive"
 grep -Fx 'Restart=on-failure' "$service" >/dev/null
 pass "bt-agent still restarts after runtime failures"
 
+grep -Fx 'RestartSec=15' "$service" >/dev/null ||
+  fail "bt-agent restart delay is too aggressive for flapping devices"
+grep -Fx 'StartLimitBurst=8' "$service" >/dev/null ||
+  fail "bt-agent restart burst is uncapped"
+pass "bt-agent backs off and caps restarts while a device flaps"
+
 sleep_service="$ROOT/default/systemd/user/omarchy-sleep-lock.service"
 grep -Fx 'ExecStart=/usr/bin/omarchy-system-sleep-monitor' "$sleep_service" >/dev/null
 pass "sleep lock service uses the package-backed monitor path"
