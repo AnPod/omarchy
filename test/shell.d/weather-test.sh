@@ -25,6 +25,8 @@ assertDeepEqual(
 )
 
 assertEqual(weather.wttrLocationQuery('Malibu', 34.02577, -118.7804), '34.03,-118.78', 'weather prefers coordinates for the wttr query')
+assertEqual(weather.roundCoordinate(34.02577), 34.03, 'weather rounds coordinates to two decimals')
+assertEqual(weather.roundCoordinate('nope'), null, 'weather ignores unparseable coordinates when rounding')
 assertEqual(weather.wttrLocationQuery('Malibu', '34.02577', '-118.7804'), '34.03,-118.78', 'weather accepts string coordinates')
 assertEqual(weather.wttrLocationQuery('New York', null, null), 'New%20York', 'weather URL-encodes a name-only location')
 assertEqual(weather.wttrLocationQuery('Malibu', 'nope', -118.7804), 'Malibu', 'weather ignores unparseable coordinates')
