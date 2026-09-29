@@ -9,4 +9,11 @@ if omarchy-cmd-present mise; then
   # days after they ship. Running omarchy update is the user asking for current
   # versions now, which is the same call the mup alias makes by hand.
   MISE_MINIMUM_RELEASE_AGE=0 mise up
+
+  # install/user/mise.sh is the canonical list of default lazy-install stubs.
+  # Re-run it on every update so clearing ~/.local/bin cannot permanently break
+  # documented tools like `gh`. Users who ran Remove Preinstalls opted out.
+  if [[ ! -f $HOME/.local/state/omarchy/preinstalls-removed && -f $OMARCHY_PATH/install/user/mise.sh ]]; then
+    bash "$OMARCHY_PATH/install/user/mise.sh"
+  fi
 fi
