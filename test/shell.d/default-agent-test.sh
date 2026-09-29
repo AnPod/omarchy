@@ -22,6 +22,15 @@ menu_log="$test_tmp/menu"
 muse_login_log="$test_tmp/muse-login"
 mkdir -p "$mock_bin" "$test_home"
 
+cat >"$mock_bin/omarchy-install-chromium-claude" <<'SH'
+#!/bin/bash
+echo claude-extension >>"$OMARCHY_TEST_STUB_LOG"
+if [[ ${OMARCHY_TEST_EXTENSION_FAIL:-false} == "true" ]]; then
+  echo "Extension installation failed" >&2
+  exit 1
+fi
+SH
+
 cat >"$mock_bin/omarchy-notification-send" <<'SH'
 #!/bin/bash
 printf '%s\0' "$@" >>"$OMARCHY_TEST_NOTIFICATION_HISTORY"
@@ -60,6 +69,11 @@ printf '%s\n' "$*" >>"$OMARCHY_TEST_MISE_HISTORY"
 if [[ $1 == "where" ]]; then
   [[ ${OMARCHY_TEST_AGENT_INSTALLED:-false} == "true" ]]
   exit
+fi
+
+if [[ $1 == "which" ]]; then
+  printf '/fake/bin/%s\n' "${@: -1}"
+  exit 0
 fi
 
 [[ ${OMARCHY_TEST_MISE_FAIL:-false} != "true" ]]
@@ -128,8 +142,10 @@ assert_lazy_stub() {
   "$test_home/.local/bin/$command" --version
   mapfile -t mise_calls <"$mise_history"
 
-  [[ ${mise_calls[0]} == "use -g --quiet $package" && ${mise_calls[1]} == "x $package -- $command --version" ]] ||
-    fail "$command lazy stub preserves its mise package"
+  [[ ${mise_calls[0]} == "use -g --quiet $package" &&
+    ${mise_calls[1]} == "which --tool $package $command" &&
+    ${mise_calls[2]} == "x $package -- /fake/bin/$command --version" ]] ||
+    fail "$command lazy stub preserves its mise package" "${mise_calls[*]}"
 }
 
 assert_lazy_stub "$grok_package" grok
@@ -406,8 +422,15 @@ declare -A expected_packages=(
 for selection in "${!expected_agents[@]}"; do
   expected=${expected_agents[$selection]}
   : >"$agent_open_log"
+  : >"$stub_log"
   OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent "$selection"
   [[ $(omarchy-default-agent) == $expected ]] || fail "default agent canonicalizes $selection"
+
+  if [[ $expected == "claude" ]]; then
+    grep -qx claude-extension "$stub_log" || fail "Claude selection installs the browser extension"
+  else
+    [[ ! -s $stub_log ]] || fail "other agents do not install the Claude extension"
+  fi
 
   mapfile -d '' -t mise_args <"$mise_log"
   [[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" ]] ||
@@ -426,6 +449,14 @@ pass "default agent selects and opens every supported provider and alias"
   fail "default agent stores its selection in Omarchy user config"
 pass "default agent stores its selection in Omarchy user config"
 
+OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
+: >"$agent_open_log"
+OMARCHY_TEST_AGENT_INSTALLED=true OMARCHY_TEST_EXTENSION_FAIL=true omarchy-default-agent claude >"$test_tmp/extension-failure" 2>&1
+[[ $(omarchy-default-agent) == "claude" ]] || fail "extension installation failure still selects Claude"
+mapfile -d '' -t agent_open_args <"$agent_open_log"
+[[ ${agent_open_args[*]} == "omarchy-agent" ]] || fail "extension installation failure still launches Claude"
+[[ ! -s $test_tmp/extension-failure ]] || fail "extension installation failure is silent"
+pass "extension installation failure silently continues selecting and launching Claude"
 OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
 : >"$notification_history"
 : >"$agent_open_log"
