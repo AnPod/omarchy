@@ -20,6 +20,11 @@ assert(/manageIpc: false/.test(panelSource), 'bluetooth owns its IPC handler so 
 assert(/function toggleBluetooth\(\)[\s\S]*?execDetached\(\["omarchy-bluetooth-power", adapter\.enabled \? "off" : "on"\]\)/.test(panelSource), 'bluetooth toggles the radio through the rfkill soft block')
 assert(!/adapter\.enabled = /.test(panelSource), 'bluetooth never writes the adapter power state directly')
 
+// rfkill block removes the adapter from D-Bus; toggling must still unblock (#13523).
+assert(/function toggleBluetooth\(\)[\s\S]*?if \(!adapter\) \{[\s\S]*?execDetached\(\["omarchy-bluetooth-power", "on"\]\)/.test(panelSource), 'bluetooth turns the radio on when the adapter is missing after rfkill')
+assert(/Stay visible while rfkill-blocked[\s\S]{0,120}visible: true/.test(panelSource), 'bluetooth bar widget stays visible while the adapter is rfkill-blocked')
+assert(!/visible: adapter !== null/.test(panelSource), 'bluetooth bar widget is not hidden when the adapter is missing')
+
 // Discovery is a BlueZ session that nothing ends at panel close: it persists
 // until StopDiscovery or until quickshell's D-Bus connection drops with the
 // shell, and a leaked session keeps the radio in inquiry, starving A2DP audio
