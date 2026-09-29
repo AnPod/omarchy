@@ -21,8 +21,18 @@ elif [[ $* == *"listPlugins"* ]]; then
   if [[ ${FAKE_NO_DISCOVERY:-0} == 1 ]]; then
     printf '[]\n'
   else
+    # Installed clones, plus first-party sources that may be restored after a
+    # clone is removed. FAKE_DISABLED_SOURCES keeps a source disabled so the
+    # remove command must not claim it was restored (#13507).
     find "$HOME/.config/omarchy/plugins" -mindepth 2 -maxdepth 2 -name manifest.json -print0 |
-      xargs -0 -r jq -s 'map({id: .id, enabled: true})'
+      xargs -0 -r jq -s --arg disabled "${FAKE_DISABLED_SOURCES:-}" '
+        (map({id: .id, enabled: true}))
+        + [
+            {id: "omarchy.menu", enabled: (($disabled | split(" ")) | index("omarchy.menu") | not)},
+            {id: "omarchy.clock", enabled: (($disabled | split(" ")) | index("omarchy.clock") | not)}
+          ]
+        | unique_by(.id)
+      '
   fi
 elif [[ $* == *"setPluginEnabled"* ]]; then
   printf 'omarchy-shell %s\n' "$*" >>"$FAKE_CALLS"
@@ -117,6 +127,14 @@ grep -qx 'omarchy-shell shell setPluginEnabled tester.menu false' "$CALLS" ||
 grep -q 'Restored omarchy.menu.' <<<"$remove_output" ||
   fail "removing a clone does not report its restored source"
 pass "removing an enabled clone goes through plugin disable and reports its source"
+
+# Clone again, then remove while the source stays disabled — must not claim restore.
+clone_plugin omarchy.menu >/dev/null
+: >"$CALLS"
+remove_output=$(HOME="$TMPDIR/home" OMARCHY_PATH="$ROOT" PATH="$TMPDIR/bin:$ROOT/bin:$PATH"   FAKE_CALLS="$CALLS" OMARCHY_TEST_ROOT="$ROOT" FAKE_DISABLED_SOURCES="omarchy.menu"   omarchy-plugin-remove tester.menu --yes)
+grep -q 'Restored omarchy.menu.' <<<"$remove_output" &&
+  fail "removing a clone of a disabled source must not claim Restored" "$remove_output"
+pass "removing a clone of a disabled source does not claim Restored"
 
 clone_plugin omarchy.active-window >/dev/null
 [[ -f $TMPDIR/home/.config/omarchy/plugins/tester.active-window/ActiveWindow.qml ]] ||
