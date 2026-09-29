@@ -39,7 +39,7 @@ omarchy plugin add https://github.com/acme/omarchy-weather.git --enable
 
 Before it does anything, it tells you plainly that plugins run as arbitrary, unsandboxed code inside your long-lived shell process, shows you the URL, and asks you to confirm. Take that seriously. The third-party plugin interface does not directly expose authentication services, and a replacement bar receives only limited capabilities for configured non-authentication UI. Visual plugins still share the shell's QML scene and can walk ordinary parent objects, while all plugin code runs with everything your user account can reach. Authentication state is protected separately by keeping those services outside the reachable host object graph. Only add repos you're willing to run, and read them before you enable them.
 
-A replacement bar can render installed widgets, but service-backed third-party widgets may have reduced functionality there because the bar is not allowed to request another plugin's live service object. Switch back to the built-in `omarchy.bar` if such a widget needs its companion service.
+A replacement bar can render installed widgets, and service-backed third-party widgets can reach their own companion service through the entry facade. The bar still cannot request a different plugin's live service object, and authentication services stay unreachable.
 
 Then it clones the repo into a staging directory, validates the manifest, refuses the install if another plugin already claims that id, and moves it into `~/.config/omarchy/plugins/<id>/`. Without `--enable` it asks whether you want it on now, and you can say no and go read the code first. It never runs anything from the plugin, never executes an install hook, and never asks for sudo — it clones files, checks the manifest, and flips a bit over IPC.
 
@@ -95,7 +95,7 @@ omarchy plugin validate ./my-plugin
 
 That runs the same checks the shell does at load time: the schema version, the required fields, an id that isn't reserved, entry points that are safe relative paths and actually exist, an entry point for every kind you claimed, and no symlinks anywhere inside the folder.
 
-For the full picture, the source is the documentation: `shell/README.md` in the Omarchy repo covers the manifest schema, the shell's IPC contract, and the exact shape of `shell.json`, and `shell/plugins/README.md` lists every first-party plugin with its id, kinds, and entry points.
+For plugin development, see the [shell reference](https://github.com/omacom/omarchy/blob/quattro/docs/omarchy-shell.md) and [first-party plugin catalog](https://github.com/omacom/omarchy/blob/quattro/shell/plugins/README.md).
 
 ## Sharing yours with the world
 

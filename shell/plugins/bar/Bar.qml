@@ -80,9 +80,9 @@ Item {
   property color background: Color.bar.background
   property color urgent: Color.bar.active
 
-  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on urgent { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on background { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on urgent { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
   property var tooltipTarget: null
   property var pendingTooltipTarget: null
   property string tooltipText: ""
@@ -236,9 +236,9 @@ Item {
       // service-capable facade for the widget it is instantiating.
       pluginShell = root.shell.pluginShellForId(moduleName)
     } else if (root.shell && typeof root.shell.pluginShellForBarEntry === "function") {
-      // Replacement bars receive a service-less entry facade. Giving an
-      // untrusted bar a generic facade factory would let it retrieve another
-      // third-party plugin's live service object.
+      // Replacement bars receive an entry facade scoped to that widget's own
+      // service only. A generic facade factory would let an untrusted bar
+      // retrieve another third-party plugin's live service object.
       pluginShell = root.shell.pluginShellForBarEntry(key, moduleName)
     }
 
@@ -1182,7 +1182,7 @@ Item {
   // changes land in quick succession, stranding the bar off screen until the
   // shell restarts. `omarchy-toggle-bar` nudges this after flipping the flag
   // so the probe re-reads it even when the watch has gone quiet.
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.bar"
 
     // Start rather than restart: a probe already in flight was launched by the
@@ -1509,7 +1509,7 @@ Item {
         opacity: root.barMoveCandidate === modelData ? (root.transparent ? 0.45 : 0.7) : 0
 
         Behavior on opacity {
-          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic }
         }
       }
     }
@@ -1895,7 +1895,7 @@ Item {
       z: 50
 
       Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic }
       }
     }
 

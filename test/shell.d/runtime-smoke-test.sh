@@ -12,6 +12,7 @@ cleanup() {
     kill "$QS_PID" 2>/dev/null || true
     wait "$QS_PID" 2>/dev/null || true
   fi
+  [[ -n ${test_root:-} ]] && rm -f "$(shell_ipc_socket "$test_root")"
   [[ -n $TMPDIR && -d $TMPDIR ]] && rm -rf "$TMPDIR"
   return 0
 }
@@ -20,7 +21,7 @@ trap cleanup EXIT
 require_compositor "shell runtime smoke test"
 
 if ! command -v quickshell >/dev/null 2>&1; then
-  pass "quickshell not installed; skipping shell runtime smoke test"
+  skip "quickshell not installed; skipping shell runtime smoke test"
   exit 0
 fi
 
@@ -257,8 +258,14 @@ Item {
       var entryFacade = root.shell
         && typeof root.shell.pluginShellForBarEntry === "function"
         ? root.shell.pluginShellForBarEntry("probe-media", "acme.media-clone") : null
+      var ownService = entryFacade && typeof entryFacade.serviceFor === "function"
+        ? entryFacade.serviceFor("acme.media-clone") : null
+      var foreignService = entryFacade && typeof entryFacade.serviceFor === "function"
+        ? entryFacade.serviceFor("acme.victim-service") : null
       return JSON.stringify({
         entryFacade: !!entryFacade,
+        ownServiceReachable: !!ownService,
+        foreignServiceReachable: !!foreignService,
         osdSummoned: entryFacade ? entryFacade.summon("omarchy.osd", "{}") : false,
         foreignSummoned: entryFacade ? entryFacade.summon("omarchy.lock", "{}") : false
       })
@@ -684,7 +691,7 @@ jq -e '.reachable == true and .enabled == true' <<<"$media_proxy_probe" >/dev/nu
 }
 
 media_summon_probe=$(shell_ipc acme-review-bar probeMediaWidgetSummon)
-jq -e '.entryFacade == true and .osdSummoned == true and .foreignSummoned == false' \
+jq -e '.entryFacade == true and .ownServiceReachable == true and .foreignServiceReachable == false and .osdSummoned == true and .foreignSummoned == false' \
   <<<"$media_summon_probe" >/dev/null || {
   printf 'Replacement-bar media summon probe: %s\n' "$media_summon_probe" >&2
   fail_with_log "replacement-bar clone facades retain only their auxiliary UI integration"
