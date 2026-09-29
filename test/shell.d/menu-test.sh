@@ -10,6 +10,24 @@ const menu = requireFromRoot('shell/plugins/menu/MenuModel.js')
 const menuQml = fs.readFileSync(path.join(root, 'shell/plugins/menu/Menu.qml'), 'utf8')
 const defaultMenuJsonc = fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8')
 
+assertDeepEqual(
+  menu.summonAction("omarchy-shell shell summon omarchy.speedtest"),
+  { id: 'omarchy.speedtest', payload: '{}' },
+  'menu runs a bare summon action in-process'
+)
+assertDeepEqual(
+  menu.summonAction(`omarchy-shell shell summon omarchy.image-picker '{"source":"themes"}'`),
+  { id: 'omarchy.image-picker', payload: '{"source":"themes"}' },
+  'menu keeps a single-quoted summon payload'
+)
+assertEqual(menu.summonAction("omarchy-shell shell summon omarchy.speedtest && echo done"), null, 'menu leaves compound summon commands to bash')
+assertEqual(menu.summonAction(`omarchy-shell shell summon omarchy.x "$(id)"`), null, 'menu leaves shell-expanded payloads to bash')
+assertEqual(menu.summonAction("omarchy-theme-set nord"), null, 'menu leaves ordinary actions to bash')
+assert(
+  /var summon = MenuModel\.summonAction\(command\)\s*if \(summon && root\.shell && root\.shell\.summon\(summon\.id, summon\.payload\)\) return\s*Util\.execDetached\(command\)/.test(menuQml),
+  'menu falls back to bash when an in-process summon is refused'
+)
+
 const parsed = menu.parseMenuJsonc(`
 {
   // comment
@@ -48,6 +66,43 @@ assertDeepEqual(
   },
   'menu normalizes parsed items'
 )
+
+// Inline // tails used to survive stripping, fail JSON.parse, and empty the
+// whole menu (#13493). // inside a string label is data and must stay.
+assertEqual(
+  menu.parseMenuJsonc('{"a": {"label": "A"}} // note').map(item => item.label).join(','),
+  'A',
+  'menu keeps entries when a content line ends with an inline // comment'
+)
+assertEqual(
+  menu.parseMenuJsonc('// note\n{"a": {"label": "A"}}').map(item => item.label).join(','),
+  'A',
+  'menu still accepts a full-line // comment before the object'
+)
+assertEqual(
+  menu.parseMenuJsonc('{"a": {"label": "A // B"}}').map(item => item.label).join(','),
+  'A // B',
+  'menu keeps // that appears inside a string label'
+)
+
+// A naive /,(\s*[}\]])/g stripper would eat the comma in "x, ]y" (#13250).
+const commaInLabel = menu.parseMenuJsonc(`{
+  "items": {
+    "demo.item": { "label": "x, ]y", "action": "true", },
+  },
+}`)
+assertEqual(commaInLabel[0]?.label, 'x, ]y', 'menu keeps commas inside JSON string labels')
+
+// Array roots are typeof object; without an explicit reject they become
+// phantom rows with ids "0", "1", … (#13492).
+assertDeepEqual(
+  menu.parseMenuJsonc('[{"label":"should-not-appear"},{"label":"ghost-2"}]'),
+  [],
+  'menu rejects a top-level array root instead of inventing phantom rows'
+)
+for (const s of ['{}', 'null', '42', '"str"']) {
+  assertDeepEqual(menu.parseMenuJsonc(s), [], `menu rejects non-object root: ${s}`)
+}
 
 const user = [
   menu.normalizeItem('style.theme', { label: 'Theme picker', aliases: ['theme', 'colors'], action: 'custom-theme' }),
