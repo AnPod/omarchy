@@ -11,11 +11,23 @@
 
 set -euo pipefail
 
+# Install then enable the Bluetooth power restore unit. Packaging may also
+# ship it under /usr/lib/systemd/user/; the user copy keeps existing installs
+# working before that lands, and wins over the package unit when both exist.
+unit_src="${OMARCHY_PATH:?}/default/systemd/user/omarchy-bluetooth-power-restore.service"
+unit_dst="$HOME/.config/systemd/user/omarchy-bluetooth-power-restore.service"
+mkdir -p -- "$(dirname -- "$unit_dst")"
+install -Dm644 -- "$unit_src" "$unit_dst"
+
 systemctl --user daemon-reload
 systemctl --user enable --now \
   bt-agent.service \
+  owed.service \
+  omarchy-bluetooth-power-restore.service \
   omarchy-recover-internal-monitor.service \
   omarchy-sleep-lock.service \
   omarchy-migrate-notify.service \
   omarchy-fcitx5.service \
   omarchy-crash-watch.service
+
+omarchy-hook-install theme-set /usr/share/owe/10-owe-sync
