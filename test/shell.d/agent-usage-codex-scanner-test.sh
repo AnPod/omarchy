@@ -26,10 +26,12 @@ while read -r request; do
       jq -cn --argjson id "$id" '{id: $id, result: {}}'
       ;;
     account/read)
-      jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
+      # Codex 0.158 can leave this one unanswered for good.
+      [[ -n ${CODEX_ACCOUNT_READ_HANGS:-} ]] ||
+        jq -cn --argjson id "$id" '{id: $id, result: {account: {}}}'
       ;;
     account/rateLimits/read)
-      jq -cn --argjson id "$id" '{id: $id, result: {rateLimits: {}}}'
+      jq -cn --argjson id "$id" --argjson limits "${CODEX_RATE_LIMITS:-{\}}" '{id: $id, result: {rateLimits: $limits}}'
       ;;
   esac
 done
@@ -90,6 +92,21 @@ result=$(HOME="$PI_HOME" CODEX_HOME="$PI_HOME/.codex" XDG_DATA_HOME="$PI_HOME/.l
 [[ $(jq -c '.modelUsage' <<<"$result") == '{"gpt-pi":{"inputTokens":10,"outputTokens":4,"cacheReadInputTokens":3,"cacheCreationInputTokens":2},"gpt-omp":{"inputTokens":20,"outputTokens":5,"cacheReadInputTokens":4,"cacheCreationInputTokens":1}}' ]] ||
   fail "Codex collector filters pi and omp sessions to Codex providers" "$result"
 pass "Codex collector counts pi and omp subscription usage"
+
+# Dotfiles-style $HOME git repos often ship a whitelist ~/.gitignore of "*".
+# rg honors that unless --no-ignore is set (#13207).
+GITIGNORE_HOME=$(mktemp -d)
+trap 'rm -rf "$TEST_HOME" "$PI_HOME" "$GITIGNORE_HOME"' EXIT
+mkdir -p "$GITIGNORE_HOME/bin" "$GITIGNORE_HOME/.pi/agent/sessions/project"
+cp "$TEST_HOME/bin/codex" "$GITIGNORE_HOME/bin/codex"
+git -C "$GITIGNORE_HOME" init -q
+printf '*\n' >"$GITIGNORE_HOME/.gitignore"
+cp "$PI_HOME/.pi/agent/sessions/project/pi.jsonl" "$GITIGNORE_HOME/.pi/agent/sessions/project/pi.jsonl"
+result=$(HOME="$GITIGNORE_HOME" CODEX_HOME="$GITIGNORE_HOME/.codex" XDG_DATA_HOME="$GITIGNORE_HOME/.local/share" \
+  PATH="$GITIGNORE_HOME/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex")
+[[ $(jq -r '.todayTotalTokens' <<<"$result") == "19" ]] ||
+  fail "Codex collector still counts pi sessions when HOME gitignores everything" "$result"
+pass "Codex collector scans pi sessions even when HOME is a gitignore whitelist"
 
 # A subscription burned entirely through opencode has no native session files;
 # usage must come from opencode's message database, filtered to OpenAI.
@@ -603,3 +620,14 @@ result=$(HOME="$INTERRUPTED_HOME" CODEX_HOME="$INTERRUPTED_HOME/.codex" XDG_CACH
 [[ $(jq -r '.todayTotalTokens' <<<"$result") == "9" ]] ||
   fail "Codex collector does not reuse a snapshot from an interrupted scan" "$result"
 pass "Codex collector does not cache an interrupted opencode scan"
+
+# The limits name the plan themselves, so an account/read that never answers
+# costs nothing: the limits still arrive, and quickly.
+started=$(date +%s)
+result=$(HOME="$TEST_HOME" CODEX_HOME="$TEST_HOME/.codex" XDG_DATA_HOME="$TEST_HOME/.local/share" PATH="$TEST_HOME/bin:$PATH" \
+  CODEX_ACCOUNT_READ_HANGS=1 CODEX_RATE_LIMITS='{"planType":"pro","primary":{"usedPercent":36,"windowDurationMins":10080}}' \
+  "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+(( $(date +%s) - started < 4 )) || fail "Codex collector doesn't wait on account/read when the limits name the plan"
+[[ $(jq -c '{tierLabel, usageStatusText, limits: [.limits[] | {label, percent}]}' <<<"$result") == '{"tierLabel":"pro","usageStatusText":"","limits":[{"label":"Weekly (7-day)","percent":0.36}]}' ]] ||
+  fail "Codex collector reads limits even when account/read never answers" "$result"
+pass "Codex collector reads limits even when account/read never answers"

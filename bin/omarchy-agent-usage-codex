@@ -145,8 +145,20 @@ def scan_pi_sessions():
     if not root.exists():
       continue
     try:
+      # --no-ignore: when $HOME is a git worktree with a whitelist ~/.gitignore
+      # of "*", rg would otherwise skip ~/.pi and ~/.omp sessions (#13207).
       proc = subprocess.Popen(
-        [rg, "--json", "-e", r'"provider"\s*:\s*"openai-codex"', "-e", r'"api"\s*:\s*"openai-codex', str(root)],
+        [
+          rg,
+          "--json",
+          "--no-ignore",
+          "--hidden",
+          "-e",
+          r'"provider"\s*:\s*"openai-codex"',
+          "-e",
+          r'"api"\s*:\s*"openai-codex',
+          str(root),
+        ],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
         text=True,
@@ -544,12 +556,20 @@ def fetch_codex_rpc():
     rpc_request(proc, 1, "initialize", {"clientInfo": {"name": "omarchy-agent-usage", "version": "1"}}, timeout=8)
     proc.stdin.write(json.dumps({"method": "initialized", "params": {}}) + "\n")
     proc.stdin.flush()
-    account_msg = rpc_request(proc, 2, "account/read", timeout=4)
-    limits_msg = rpc_request(proc, 3, "account/rateLimits/read", timeout=4)
-
-    account = (account_msg.get("result") or {}).get("account") or {}
+    limits_msg = rpc_request(proc, 2, "account/rateLimits/read", timeout=8)
     limits = (limits_msg.get("result") or {}).get("rateLimits") or {}
-    plan = limits.get("planType") or account.get("planType") or account.get("type") or ""
+    plan = limits.get("planType") or ""
+
+    # The limits name the plan themselves. account/read is only a fallback
+    # for when they don't, and never a reason to lose them: Codex 0.158's
+    # app-server can leave it unanswered for good.
+    if not plan:
+      try:
+        account_msg = rpc_request(proc, 3, "account/read", timeout=2)
+        account = (account_msg.get("result") or {}).get("account") or {}
+        plan = account.get("planType") or account.get("type") or ""
+      except TimeoutError:
+        pass
     result["tierLabel"] = str(plan) if plan else ""
 
     for window in (limits.get("primary"), limits.get("secondary")):
