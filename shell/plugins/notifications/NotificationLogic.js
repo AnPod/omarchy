@@ -180,16 +180,24 @@ function shouldRenderCompactGlyph(glyph, iconSource, singleLineToast) {
   return String(glyph || "").length > 0 && String(iconSource || "").length === 0 && !!singleLineToast
 }
 
+function iconFromHints(hints) {
+  // Ghostty (and other terminals) leave app_icon empty and identify via the
+  // desktop-entry hint; image-path may carry the same desktop id as a string.
+  return stringHint(hints, "desktop-entry") || stringHint(hints, "image-path")
+}
+
 function snapshotOf(notification, timestamp) {
   var n = notification || {}
   var id = n.id || 0
   var expireTimeout = Number(n.expireTimeout || 0)
   if (!isFinite(expireTimeout) || expireTimeout < 0) expireTimeout = 0
+  var appIcon = n.appIcon || ""
+  if (!appIcon) appIcon = iconFromHints(n.hints)
   return {
     id: id,
     originalId: id,
     app: n.appName || "",
-    appIcon: n.appIcon || "",
+    appIcon: appIcon,
     summary: String(n.summary || ""),
     body: n.body || "",
     image: n.image || "",
@@ -221,6 +229,23 @@ function popupRowChanged(row, updated) {
     if (current[role] !== next[role]) return true
   }
   return false
+}
+
+// The same message from the same sender under a new id. A web app open in
+// several tabs (HEY, Gmail, Calendar) fires one notification per tab for a
+// single reminder, all within the same moment — what the user means by that
+// is one toast, not a stack of identical ones. The image and click target
+// count too: every screen recording toast shares its text but previews and
+// opens a different file.
+var DUPLICATE_ROLES = ["app", "summary", "body", "image", "execArgv"]
+
+function isDuplicatePopup(row, snapshot) {
+  if (!row || !snapshot || row.originalId === snapshot.originalId) return false
+  for (var i = 0; i < DUPLICATE_ROLES.length; i++) {
+    var role = DUPLICATE_ROLES[i]
+    if ((row[role] || "") !== (snapshot[role] || "")) return false
+  }
+  return true
 }
 
 // A client updating a notification through replaces_id keeps the identity of
@@ -462,6 +487,7 @@ if (typeof module !== "undefined") {
     snapshotOf: snapshotOf,
     popupRoles: popupRoles,
     popupRowChanged: popupRowChanged,
+    isDuplicatePopup: isDuplicatePopup,
     replacementSnapshot: replacementSnapshot,
     historyEntry: historyEntry,
     parseSettings: parseSettings,
