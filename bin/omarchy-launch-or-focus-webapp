@@ -10,6 +10,17 @@ fi
 
 WINDOW_PATTERN="$1"
 shift
-LAUNCH_COMMAND="omarchy-launch-webapp $@"
+
+# Quote every argv so spaces survive the launch-or-focus re-parse (#12800).
+# printf %q with no args emits '', which would hand launch-webapp an empty URL.
+if (($# > 0)); then
+  printf -v LAUNCH_COMMAND 'omarchy-launch-webapp %q' "$1"
+  if (($# > 1)); then
+    printf -v _rest ' %q' "${@:2}"
+    LAUNCH_COMMAND+="$_rest"
+  fi
+else
+  LAUNCH_COMMAND="omarchy-launch-webapp"
+fi
 
 exec omarchy-launch-or-focus "$WINDOW_PATTERN" "$LAUNCH_COMMAND"
