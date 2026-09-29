@@ -80,9 +80,9 @@ Item {
   property color background: Color.bar.background
   property color urgent: Color.bar.active
 
-  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on urgent { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on background { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on urgent { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
   property var tooltipTarget: null
   property var pendingTooltipTarget: null
   property string tooltipText: ""
@@ -554,6 +554,16 @@ Item {
 
   readonly property bool vertical: position === "left" || position === "right"
   readonly property int barSize: vertical ? Style.bar.sizeVertical : Style.bar.sizeHorizontal
+
+  // Whether this machine is an Apple Silicon laptop, whose built-in panel may
+  // have a camera notch. Machine identity is fixed, so probe once at startup;
+  // the device-tree file does not exist on x86, which reads as "no" there.
+  property bool appleSiliconHost: false
+  Process {
+    running: true
+    command: ["bash", "-c", "grep -qi apple /proc/device-tree/compatible 2>/dev/null && echo yes || echo no"]
+    stdout: SplitParser { onRead: function(line) { root.appleSiliconHost = String(line).trim() === "yes" } }
+  }
 
   function normalizePosition(value) {
     return BarModel.normalizePosition(value)
@@ -1182,7 +1192,7 @@ Item {
   // changes land in quick succession, stranding the bar off screen until the
   // shell restarts. `omarchy-toggle-bar` nudges this after flipping the flag
   // so the probe re-reads it even when the watch has gone quiet.
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.bar"
 
     // Start rather than restart: a probe already in flight was launched by the
@@ -1261,8 +1271,19 @@ Item {
       right: root.position === "right" || !root.vertical
     }
 
+    // A top bar shorter than the camera cutout of an Apple notched panel
+    // leaves a sliver of every window peeking out beside the camera, so the
+    // cutout height is this panel's minimum sensible top-bar height. An
+    // intentionally taller bar still wins, and a calibrated [bar]
+    // notch-height in shell.toml overrides the derived value.
+    readonly property int notchFloor: root.appleSiliconHost && root.position === "top"
+      ? (Style.bar.notchHeight > 0
+          ? Style.bar.notchHeight
+          : BarModel.notchHeight(screen.name, screen.width, screen.height, screen.devicePixelRatio))
+      : 0
+
     implicitWidth: root.vertical ? root.barSize : 0
-    implicitHeight: root.vertical ? 0 : root.barSize
+    implicitHeight: root.vertical ? 0 : Math.max(root.barSize, notchFloor)
     color: root.transparent ? "transparent" : root.background
     surfaceFormat.opaque: false
     WlrLayershell.namespace: "omarchy-bar"
@@ -1509,7 +1530,7 @@ Item {
         opacity: root.barMoveCandidate === modelData ? (root.transparent ? 0.45 : 0.7) : 0
 
         Behavior on opacity {
-          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic }
         }
       }
     }
@@ -1895,7 +1916,7 @@ Item {
       z: 50
 
       Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic }
       }
     }
 
