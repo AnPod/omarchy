@@ -1,3 +1,8 @@
+# Canonical list of default mise lazy-install stubs. Re-run by
+# omarchy-refresh-applications and omarchy-update-mise (and by migrations that
+# restore stubs after ~/.local/bin cleanup). Keep omarchy-remove-preinstalls in
+# sync when adding an unconditional stub here.
+#
 # Upgrades must not delete the version a running process is executing from:
 # mise up would prune the old install dir out from under a live session.
 mise settings set upgrade.auto_prune false
