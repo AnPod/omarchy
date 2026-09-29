@@ -10,6 +10,24 @@ const menu = requireFromRoot('shell/plugins/menu/MenuModel.js')
 const menuQml = fs.readFileSync(path.join(root, 'shell/plugins/menu/Menu.qml'), 'utf8')
 const defaultMenuJsonc = fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8')
 
+assertDeepEqual(
+  menu.summonAction("omarchy-shell shell summon omarchy.speedtest"),
+  { id: 'omarchy.speedtest', payload: '{}' },
+  'menu runs a bare summon action in-process'
+)
+assertDeepEqual(
+  menu.summonAction(`omarchy-shell shell summon omarchy.image-picker '{"source":"themes"}'`),
+  { id: 'omarchy.image-picker', payload: '{"source":"themes"}' },
+  'menu keeps a single-quoted summon payload'
+)
+assertEqual(menu.summonAction("omarchy-shell shell summon omarchy.speedtest && echo done"), null, 'menu leaves compound summon commands to bash')
+assertEqual(menu.summonAction(`omarchy-shell shell summon omarchy.x "$(id)"`), null, 'menu leaves shell-expanded payloads to bash')
+assertEqual(menu.summonAction("omarchy-theme-set nord"), null, 'menu leaves ordinary actions to bash')
+assert(
+  /var summon = MenuModel\.summonAction\(command\)\s*if \(summon && root\.shell && root\.shell\.summon\(summon\.id, summon\.payload\)\) return\s*Util\.execDetached\(command\)/.test(menuQml),
+  'menu falls back to bash when an in-process summon is refused'
+)
+
 const parsed = menu.parseMenuJsonc(`
 {
   // comment
@@ -643,3 +661,25 @@ JS
 font_charset=$(fc-query --format='%{charset}' "$ROOT/default/fonts/omarchy/omarchy.ttf")
 [[ $font_charset == *"e900-e90e"* ]] || fail "Omarchy icon font includes every custom menu glyph"
 pass "Omarchy icon font includes the official agent marks"
+
+# Apps must re-merge every time the submenu is entered. Marking the provider
+# loaded before AppLibrary had entries left the list stuck on "Nothing here yet"
+# (#13202).
+menu_qml=$(cat "$ROOT/shell/plugins/menu/Menu.qml")
+[[ $menu_qml == *'if (root.appLibrary) root.providersLoaded[id] = true'* ]] || \
+  fail "menu only marks Apps loaded when AppLibrary exists"
+[[ $menu_qml == *'onShellChanged:'* ]] || \
+  fail "menu retries Apps merge when shell is injected late"
+
+apps_in_load=$(awk '/function loadProviderForMenu\(id\)/{p=1} p&&/provider === "apps"/{print NR; exit}' <<<"$menu_qml")
+loaded_guard=$(awk '/function loadProviderForMenu\(id\)/{p=1} p&&/providersLoaded\[id\]\) return/{print NR; exit}' <<<"$menu_qml")
+[[ -n $apps_in_load && -n $loaded_guard && $apps_in_load -lt $loaded_guard ]] || \
+  fail "Apps provider still short-circuits on providersLoaded" "apps=$apps_in_load guard=$loaded_guard"
+
+merge_line=$(awk '/function startProviderForMenu\(id\)/{p=1} p&&/mergeAppRows\(\)/{print NR; exit}' <<<"$menu_qml")
+mark_line=$(awk '/function startProviderForMenu\(id\)/{p=1} p&&/providersLoaded\[id\] = true/{print NR; exit}' <<<"$menu_qml")
+[[ -n $merge_line && -n $mark_line && $merge_line -lt $mark_line ]] || \
+  fail "menu must merge Apps before marking the provider loaded" "merge=$merge_line mark=$mark_line"
+pass "menu Apps list recovers from an empty first scan"
+
+

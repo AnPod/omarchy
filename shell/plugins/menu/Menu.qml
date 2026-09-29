@@ -138,6 +138,9 @@ Item {
     var command = String(action || "")
     if (!command) return
 
+    var summon = MenuModel.summonAction(command)
+    if (summon && root.shell && root.shell.summon(summon.id, summon.payload)) return
+
     Util.execDetached(command)
   }
 
@@ -330,12 +333,16 @@ Item {
 
   function startProviderForMenu(id) {
     var entry = root.item(id)
-    if (!entry || !entry.provider || root.providersLoaded[id]) return
+    if (!entry || !entry.provider) return
     if (entry.provider === "apps") {
-      root.providersLoaded[id] = true
+      // Always re-merge. DesktopEntries (or shell.appLibrary) may have been
+      // empty on a prior visit; marking the provider loaded then left Apps
+      // stuck on "Nothing here yet" even after entries appeared (#13202).
       root.mergeAppRows()
+      if (root.appLibrary) root.providersLoaded[id] = true
       return
     }
+    if (root.providersLoaded[id]) return
     var spec = root.providers[entry.provider]
     if (!spec) return
 
@@ -417,13 +424,16 @@ Item {
 
   function loadProviderForMenu(id) {
     var entry = root.item(id)
-    if (!entry || !entry.provider || root.providersLoaded[id]) return
+    if (!entry || !entry.provider) return
 
     // Native providers don't touch providerProc, so they never need to queue.
+    // Apps always refresh on enter so a cold/empty first scan can recover.
     if (entry.provider === "apps") {
       root.startProviderForMenu(id)
       return
     }
+
+    if (root.providersLoaded[id]) return
 
     if (providerProc.running) {
       if (root.providerQueue.indexOf(id) < 0) root.providerQueue = root.providerQueue.concat([id])
@@ -955,8 +965,15 @@ Item {
   Connections {
     target: root.appLibrary
     function onAppsChanged() {
-      if (root.providersLoaded["apps"]) root.mergeAppRows()
+      if (root.providersLoaded["apps"] || root.activeMenu === "apps") root.mergeAppRows()
     }
+  }
+
+  // shell (and with it appLibrary) is injected asynchronously. If Apps was
+  // opened before that landed, merge was a no-op; retry once shell arrives.
+  onShellChanged: {
+    if (root.opened && (root.providersLoaded["apps"] || root.activeMenu === "apps"))
+      root.mergeAppRows()
   }
 
   // The JSONC sources are watched so live edits to the default file (or the
@@ -1062,15 +1079,10 @@ Item {
       if (root.guardsPending) Qt.callLater(function() { root.evaluateGuards() })
     }
   }
-  PanelWindow {
+  OverlayWindow {
     id: panel
-    visible: root.opened && root.rowsLoaded
-    anchors { top: true; bottom: true; left: true; right: true }
-    color: "transparent"
+    shown: root.opened && root.rowsLoaded
     WlrLayershell.namespace: "omarchy-menu"
-    WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: WlrKeyboardFocus.Exclusive
-    exclusionMode: ExclusionMode.Ignore
 
     // The card opens centered exactly as always. The first search keystroke
     // or submenu move freezes the top line where it currently sits — from
@@ -1083,12 +1095,13 @@ Item {
     readonly property int centeredTop: Math.max(Style.gapsOut, Math.round((height - root.cardHeight) / 2))
     readonly property int effectiveCardTop: cardTop >= 0 ? cardTop : centeredTop
     function freezeCardTop() {
-      if (visible && cardTop < 0) {
+      if (shown && cardTop < 0) {
         cardTop = effectiveCardTop
         maxRowsHeight = root.visibleRowsHeight
       }
     }
-    onVisibleChanged: if (!visible) { cardTop = -1; maxRowsHeight = -1 }
+    // The surface stays mapped between opens, so closing is shown going false.
+    onShownChanged: if (!shown) { cardTop = -1; maxRowsHeight = -1 }
 
     Rectangle {
       anchors.fill: parent
