@@ -208,8 +208,30 @@ function nearestDropTarget(candidates, point, vertical) {
   return best
 }
 
+
+// With every monitor unplugged, Qt substitutes a nameless placeholder screen
+// and Hyprland its headless FALLBACK output. A bar built for either outlives
+// the monitors' return: the compositor drops it onto whichever monitor comes
+// back first, where it stacks over that monitor's own bar — and every bar
+// widget's ShellIpc re-registers — until torn down (#13072 / #13163).
+function isRealScreen(screen) {
+  if (!screen || !screen.name || screen.name === "FALLBACK") return false
+  return screen.width > 0 && screen.height > 0
+}
+
+function realScreens(screens) {
+  var real = []
+  var list = screens || []
+  for (var i = 0; i < list.length; i++) {
+    if (isRealScreen(list[i])) real.push(list[i])
+  }
+  return real
+}
+
 if (typeof module !== "undefined") {
   module.exports = {
+    isRealScreen: isRealScreen,
+    realScreens: realScreens,
     isDrawnSlot: isDrawnSlot,
     pickDrawnSlot: pickDrawnSlot,
     pickPanelSlot: pickPanelSlot,

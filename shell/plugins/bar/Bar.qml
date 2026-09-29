@@ -35,6 +35,10 @@ Item {
     property int revision: 0
     function metadataFor(id) { return null }
   }
+  // Qt names a screen before adding it, so only its geometry can arrive late;
+  // those reads are tracked and a screen whose size lands afterwards still gets
+  // its bar. BarModel.isRealScreen says which screens are skipped and why.
+  readonly property var realScreens: BarModel.realScreens(Quickshell.screens)
   // Mirrors the on-disk `bar-off` flag so the user can hide the bar without
   // killing the entire shell. Hidden panels stay mapped but park off-screen
   // without an exclusion zone; updated by the FileView watcher further down.
@@ -80,9 +84,9 @@ Item {
   property color background: Color.bar.background
   property color urgent: Color.bar.active
 
-  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on background { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
-  Behavior on urgent { ColorAnimation { duration: 420; easing.type: Easing.InOutCubic } }
+  Behavior on barForeground { enabled: root.foregroundAnimationEnabled; ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on background { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
+  Behavior on urgent { ColorAnimation { duration: Style.duration(420); easing.type: Easing.InOutCubic } }
   property var tooltipTarget: null
   property var pendingTooltipTarget: null
   property string tooltipText: ""
@@ -1182,7 +1186,7 @@ Item {
   // changes land in quick succession, stranding the bar off screen until the
   // shell restarts. `omarchy-toggle-bar` nudges this after flipping the flag
   // so the probe re-reads it even when the watch has gone quiet.
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.bar"
 
     // Start rather than restart: a probe already in flight was launched by the
@@ -1194,7 +1198,7 @@ Item {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.realScreens
 
     delegate: Component {
       BarPanel {
@@ -1206,7 +1210,7 @@ Item {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.realScreens
 
     delegate: Component {
       DragGhostPanel {
@@ -1219,7 +1223,7 @@ Item {
   }
 
   Variants {
-    model: Quickshell.screens
+    model: root.realScreens
 
     delegate: Component {
       BarMoveGhostPanel {
@@ -1509,7 +1513,7 @@ Item {
         opacity: root.barMoveCandidate === modelData ? (root.transparent ? 0.45 : 0.7) : 0
 
         Behavior on opacity {
-          NumberAnimation { duration: 140; easing.type: Easing.OutCubic }
+          NumberAnimation { duration: Style.duration(140); easing.type: Easing.OutCubic }
         }
       }
     }
@@ -1895,7 +1899,7 @@ Item {
       z: 50
 
       Behavior on opacity {
-        NumberAnimation { duration: 120; easing.type: Easing.OutCubic }
+        NumberAnimation { duration: Style.duration(120); easing.type: Easing.OutCubic }
       }
     }
 
