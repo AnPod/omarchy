@@ -48,8 +48,6 @@ cursor | cursor-agent) agent="cursor-agent"; name="Cursor CLI"; agent_package="c
   ;;
 esac
 
-agent_package=${agent_package:-$agent}
-
 if [[ -z ${agent_package:-} && -z ${agent_installer:-} ]]; then
   echo "omarchy-default-agent: no install source for $name" >&2
   exit 1
@@ -85,8 +83,6 @@ fi
 if ! agent_install; then
   if [[ $installing == "true" && -n ${agent_installer:-} ]]; then
     echo "Could not install $name" >&2
-  elif [[ $installing == "true" && -z ${agent_package:-} ]]; then
-    echo "$name is not installed. Install it yourself, then re-run this command." >&2
   elif [[ $installing == "true" ]]; then
     echo "Could not install $name with mise (package: $agent_package)" >&2
   else

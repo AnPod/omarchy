@@ -370,6 +370,25 @@ SH
 chmod +x "$mock_bin/omarchy-agent"
 hash -r
 
+# Simulate a provider whose explicit mise package mapping was omitted.
+missing_package_command="$test_tmp/default-agent-missing-package"
+sed 's/; agent_package="npm:@github\/copilot"//' "$ROOT/bin/omarchy-default-agent" >"$missing_package_command"
+printf '%s\n' pi >"$agent_file"
+: >"$mise_log"
+: >"$mise_history"
+: >"$terminal_log"
+: >"$agent_open_log"
+if bash "$missing_package_command" --install copilot >"$test_tmp/missing-package-output" 2>&1; then
+  fail "default agent rejects a missing mise package mapping"
+fi
+grep -Fq "no install source for GitHub Copilot" "$test_tmp/missing-package-output" ||
+  fail "default agent explains a missing mise package mapping"
+[[ $(<"$agent_file") == "pi" ]] || fail "missing package mapping preserves the current default agent"
+[[ ! -s $mise_log && ! -s $mise_history ]] || fail "missing package mapping never calls mise"
+[[ ! -s $terminal_log ]] || fail "missing package mapping never opens an installation terminal"
+[[ ! -s $agent_open_log ]] || fail "missing package mapping never launches an agent"
+pass "default agent rejects a missing mise package mapping without side effects"
+
 declare -A expected_agents=(
   [pi]="pi"
   [omp]="omp"
