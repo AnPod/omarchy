@@ -38,7 +38,7 @@ mkdir -p "$tmp_dir/bin"
 cat >"$tmp_dir/bin/driverless" <<'SH'
 #!/bin/bash
 if [[ ${1:-} == "list" ]]; then
-  printf '%s\n' 'driverless:ipp://EPSON._ipp._tcp.local/ipp/print "EPSON ET-2850" "EPSON ET-2850 IPP Everywhere" ""'
+  printf '%s\n' '"driverless:ipp://EPSON._ipp._tcp.local/ipp/print" en "Epson" "Epson ET-2850, driverless, cups-filters 2.0.0" ""'
 fi
 exit 0
 SH
@@ -68,8 +68,9 @@ pass "direct URI path creates an Everywhere queue"
 
 : >"$LPADMIN_LOG"
 PATH="$tmp_dir/bin:$PATH" LPADMIN_LOG="$LPADMIN_LOG" \
-  "$setup_printer" </dev/null
+  "$setup_printer" </dev/null >"$tmp_dir/discovery.log" ||
+  fail "quoted driverless discovery succeeds" "$(cat "$tmp_dir/discovery.log")"
 
-grep -q 'lpadmin -p EPSON_ET-2850 -E -v ipp://EPSON._ipp._tcp.local/ipp/print -m everywhere' "$LPADMIN_LOG" ||
+rg -qxF 'lpadmin -p Epson_ET-2850__driverless__cups-filters_2_0_0 -E -v ipp://EPSON._ipp._tcp.local/ipp/print -m everywhere' "$LPADMIN_LOG" ||
   fail "discovered printer is added with Everywhere" "$(cat "$LPADMIN_LOG")"
 pass "discovered printer is added with Everywhere"

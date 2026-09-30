@@ -19,15 +19,13 @@ usage() {
 }
 
 # driverless list lines look like:
-#   driverless:ipp://EPSON._ipp._tcp.local/ipp/print "Epson ..." "Epson ... IPP Everywhere" ""
+#   "driverless:ipp://EPSON._ipp._tcp.local/ipp/print" en "Epson" "Epson ..., driverless, ..." ""
 driverless_entries() {
-  LC_ALL=C driverless list 2>/dev/null | awk '
-    /^driverless:/ {
-      uri = $1
+  LC_ALL=C driverless list 2>/dev/null | awk -F '"' '
+    /^"driverless:/ {
+      uri = $2
       sub(/^driverless:/, "", uri)
-      name = $0
-      sub(/^[^"]*"/, "", name)
-      sub(/".*/, "", name)
+      name = $6
       if (name == "") name = uri
       printf "%s\t%s\n", name, uri
     }
