@@ -34,6 +34,34 @@ HOME="$tmp" PATH="$tmp/bin:$PATH" "$helper"
   fail "helper is idempotent"
 pass "helper is idempotent"
 
+# Refresh must restore the workaround after copying the shipped config.
+for installer in copy-url ytdlp google-account; do
+  cat >"$tmp/bin/omarchy-install-chromium-$installer" <<'STUB'
+#!/bin/bash
+exit 0
+STUB
+  chmod +x "$tmp/bin/omarchy-install-chromium-$installer"
+done
+
+cat >"$tmp/.config/chromium-flags.conf" <<'CONF'
+--disable-accelerated-video-decode
+--fixture-only-flag
+CONF
+
+HOME="$tmp" OMARCHY_PATH="$ROOT" PATH="$tmp/bin:$ROOT/bin:$PATH" omarchy-refresh-chromium >"$tmp/refresh.log" 2>&1
+! grep -qF -- '--fixture-only-flag' "$tmp/.config/chromium-flags.conf" ||
+  fail "chromium refresh replaces the existing config"
+pass "chromium refresh replaces the existing config"
+
+count=$(grep -xcF -- '--disable-accelerated-video-decode' "$tmp/.config/chromium-flags.conf" || true)
+(( count == 1 )) || fail "chromium refresh preserves the GSP workaround exactly once" "$(cat "$tmp/.config/chromium-flags.conf")"
+pass "chromium refresh preserves the GSP workaround exactly once"
+
+HOME="$tmp" OMARCHY_PATH="$ROOT" PATH="$tmp/bin:$ROOT/bin:$PATH" omarchy-refresh-chromium >"$tmp/refresh.log" 2>&1
+count=$(grep -xcF -- '--disable-accelerated-video-decode' "$tmp/.config/chromium-flags.conf" || true)
+(( count == 1 )) || fail "chromium refresh keeps the GSP workaround idempotent"
+pass "chromium refresh keeps the GSP workaround idempotent"
+
 # Non-GSP is a no-op.
 cat >"$tmp/bin/omarchy-hw-nvidia-gsp" <<'STUB'
 #!/bin/bash
@@ -46,6 +74,11 @@ HOME="$tmp" PATH="$tmp/bin:$PATH" "$helper"
 ! grep -q -- '--disable-accelerated-video-decode' "$tmp/.config/brave-flags.conf" ||
   fail "helper skips non-GSP machines"
 pass "helper skips non-GSP machines"
+
+HOME="$tmp" OMARCHY_PATH="$ROOT" PATH="$tmp/bin:$ROOT/bin:$PATH" omarchy-refresh-chromium >"$tmp/refresh.log" 2>&1
+! grep -qF -- '--disable-accelerated-video-decode' "$tmp/.config/chromium-flags.conf" ||
+  fail "chromium refresh omits the workaround on non-GSP machines"
+pass "chromium refresh omits the workaround on non-GSP machines"
 
 grep -q 'omarchy-chromium-nvidia-video-flags' "$ROOT/install/hardware/nvidia.sh" ||
   fail "nvidia install applies chromium video flags"
