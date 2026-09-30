@@ -47,7 +47,42 @@ cat >"$test_bin/omarchy-hw-apple-silicon" <<'SH'
 exit "${APPLE_SILICON:-1}"
 SH
 
+cat >"$test_bin/pactl" <<'SH'
+#!/bin/bash
+[[ $* == "list short sources" ]] || exit 1
+printf '%s\n' "$PACTL_SOURCES"
+exit "${PACTL_STATUS:-0}"
+SH
+
 chmod +x "$test_bin"/*
+
+for scenario in usb similar failed; do
+  case $scenario in
+    usb) sources=$'1\talsa_input.usb-microphone\tPipeWire\ts16le 2ch 48000Hz\tRUNNING'; status=0 ;;
+    similar) sources=$'1\tomarchy_asahi_mic.monitor.extra\tPipeWire\ts16le 2ch 48000Hz\tRUNNING'; status=0 ;;
+    failed) sources=$'1\tomarchy_asahi_mic.monitor\tPipeWire\ts16le 2ch 48000Hz\tRUNNING'; status=1 ;;
+  esac
+
+  printf 'pcm.custom { type null }\n# preserve without final newline' >"$test_home/.asoundrc"
+  cp "$test_home/.asoundrc" "$test_home/asoundrc.expected"
+  : >"$log_file"
+  printf 'yes\n' >"$confirm_queue"
+  APPLE_SILICON=0 PACTL_SOURCES="$sources" PACTL_STATUS="$status" \
+    HOME="$test_home" OMARCHY_PATH="$test_omarchy_path" \
+    PATH="$test_bin:$PATH" TEST_LOG="$log_file" CONFIRM_QUEUE="$confirm_queue" \
+    bash "$ROOT/bin/omarchy-voxtype-install" >/dev/null
+
+  grep -q 'device = "default"' "$test_home/.config/voxtype/config.toml" ||
+    fail "Apple Silicon install keeps default capture for $scenario source query"
+  cmp -s "$test_home/asoundrc.expected" "$test_home/.asoundrc" ||
+    fail "Apple Silicon install preserves .asoundrc for $scenario source query"
+  grep -qx 'voxtype:setup systemd' "$log_file" ||
+    fail "Apple Silicon install completes for $scenario source query"
+  pass "Apple Silicon Voxtype install preserves default capture and .asoundrc for $scenario source query"
+done
+
+rm -rf "$test_home/.config" "$test_home/.asoundrc"
+export PACTL_SOURCES=$'1\tomarchy_asahi_mic.monitor\tPipeWire\ts16le 2ch 48000Hz\tRUNNING'
 
 printf 'yes\n' >"$confirm_queue"
 APPLE_SILICON=0 HOME="$test_home" OMARCHY_PATH="$test_omarchy_path" \

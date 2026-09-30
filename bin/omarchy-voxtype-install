@@ -5,10 +5,14 @@
 
 set -e
 
-# Pin Voxtype's ALSA capture to Omarchy's Asahi mic map so WirePlumber cannot
-# leave it on the headset-jack source (digital zeros with nothing plugged in).
+# When Omarchy's Asahi mic map is available, pin Voxtype's ALSA capture to it
+# so WirePlumber cannot leave it on the headset-jack source (digital zeros).
 configure_asahi_mic() {
   omarchy-hw-apple-silicon 2>/dev/null || return 0
+
+  local sources
+  sources=$(pactl list short sources 2>/dev/null) || return 0
+  awk '$2 == "omarchy_asahi_mic.monitor" { found = 1 } END { exit !found }' <<<"$sources" || return 0
 
   local config=$HOME/.config/voxtype/config.toml
   local asoundrc=$HOME/.asoundrc
