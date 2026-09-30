@@ -22,6 +22,15 @@ menu_log="$test_tmp/menu"
 muse_login_log="$test_tmp/muse-login"
 mkdir -p "$mock_bin" "$test_home"
 
+cat >"$mock_bin/omarchy-install-chromium-claude" <<'SH'
+#!/bin/bash
+echo claude-extension >>"$OMARCHY_TEST_STUB_LOG"
+if [[ ${OMARCHY_TEST_EXTENSION_FAIL:-false} == "true" ]]; then
+  echo "Extension installation failed" >&2
+  exit 1
+fi
+SH
+
 cat >"$mock_bin/omarchy-notification-send" <<'SH'
 #!/bin/bash
 printf '%s\0' "$@" >>"$OMARCHY_TEST_NOTIFICATION_HISTORY"
@@ -347,6 +356,8 @@ pass "--pick opens the agent defaults menu when none is set"
 source "$ROOT/default/bash/aliases"
 [[ $(alias a) == "alias a='omarchy-agent --inline'" ]] ||
   fail "terminal alias launches the default agent inline"
+[[ $(alias cy) == "alias cy='codex'" ]] ||
+  fail "cy launches codex without --approve-for-me"
 pass "terminal alias launches the default agent inline"
 
 grep -Fq 'o.bind("SUPER + SHIFT + CTRL + A", "Agent", "omarchy-agent --pick")' \
@@ -406,8 +417,15 @@ declare -A expected_packages=(
 for selection in "${!expected_agents[@]}"; do
   expected=${expected_agents[$selection]}
   : >"$agent_open_log"
+  : >"$stub_log"
   OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent "$selection"
   [[ $(omarchy-default-agent) == $expected ]] || fail "default agent canonicalizes $selection"
+
+  if [[ $expected == "claude" ]]; then
+    grep -qx claude-extension "$stub_log" || fail "Claude selection installs the browser extension"
+  else
+    [[ ! -s $stub_log ]] || fail "other agents do not install the Claude extension"
+  fi
 
   mapfile -d '' -t mise_args <"$mise_log"
   [[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" ]] ||
@@ -426,6 +444,14 @@ pass "default agent selects and opens every supported provider and alias"
   fail "default agent stores its selection in Omarchy user config"
 pass "default agent stores its selection in Omarchy user config"
 
+OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
+: >"$agent_open_log"
+OMARCHY_TEST_AGENT_INSTALLED=true OMARCHY_TEST_EXTENSION_FAIL=true omarchy-default-agent claude >"$test_tmp/extension-failure" 2>&1
+[[ $(omarchy-default-agent) == "claude" ]] || fail "extension installation failure still selects Claude"
+mapfile -d '' -t agent_open_args <"$agent_open_log"
+[[ ${agent_open_args[*]} == "omarchy-agent" ]] || fail "extension installation failure still launches Claude"
+[[ ! -s $test_tmp/extension-failure ]] || fail "extension installation failure is silent"
+pass "extension installation failure silently continues selecting and launching Claude"
 OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
 : >"$notification_history"
 : >"$agent_open_log"
@@ -645,7 +671,7 @@ assert_launch omp omp --auto-approve -- "Review this project"
 assert_launch opencode opencode --auto --prompt "Review this project"
 assert_launch ori ori code --interactive --prompt "Review this project"
 assert_launch claude claude --permission-mode auto -- "Review this project"
-assert_launch codex codex --approve-for-me -- "Review this project"
+assert_launch codex codex -- "Review this project"
 assert_launch muse muse --approval-mode never -- "Review this project"
 assert_launch crush crush run "Review this project"
 assert_launch grok grok --permission-mode bypassPermissions -- "Review this project"
@@ -673,7 +699,7 @@ assert_bypass omp omp --auto-approve
 assert_bypass opencode opencode --auto
 assert_bypass ori ori code
 assert_bypass claude claude --permission-mode auto
-assert_bypass codex codex --approve-for-me
+assert_bypass codex codex
 assert_bypass muse muse --approval-mode never
 assert_bypass crush crush --yolo
 assert_bypass grok grok --permission-mode bypassPermissions
