@@ -32,6 +32,7 @@ mkdir -p "$HOME/.local/bin"
 # a package name carrying shell characters stays one argument instead of running.
 printf -v package_arg '%q' "$package"
 printf -v bin_arg '%q' "$bin"
+printf -v diagnostic_arg '%q' "omarchy-mise-install: '$command' recursed; mise could not provide $bin"
 
 # Keep values that are inert inside double quotes in the form existing migrations
 # recognize, including mise backend options that %q would unnecessarily escape.
@@ -58,7 +59,7 @@ rm -f "$HOME/.local/bin/$command"
 cat >"$HOME/.local/bin/$command" <<EOF
 #!/bin/bash
 if [[ -n \${$guard:-} ]]; then
-  echo "omarchy-mise-install: '$command' recursed; mise could not provide $bin_arg" >&2
+  printf '%s\n' $diagnostic_arg >&2
   exit 127
 fi
 export $guard=1

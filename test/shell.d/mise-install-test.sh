@@ -118,3 +118,26 @@ grep -Fq "omarchy-mise-install: 'playwright' recursed" "$err" ||
   fail "recursing wrapper explains why it stopped" "$(cat "$err")"
 
 pass "a wrapper stops recursion when mise falls back to PATH"
+
+# Shell characters in a literal command name must stay data in the recursion
+# diagnostic as well as in the execution lines.
+command='tool$(touch marker)'
+(
+  cd "$tmpdir"
+  install_wrapper somepkg "$command" >/dev/null
+)
+[[ ! -e $tmpdir/marker ]] ||
+  fail "generating a wrapper does not execute its command name"
+
+status=0
+(
+  cd "$tmpdir"
+  PATH="$stub_bin:$home/.local/bin:$PATH" "$home/.local/bin/$command"
+) 2>"$err" || status=$?
+(( status == 127 )) || fail "recursing literal command wrapper exits 127" "exit: $status"
+[[ ! -e $tmpdir/marker ]] ||
+  fail "the recursion diagnostic does not execute its command name"
+grep -Fqx "omarchy-mise-install: '$command' recursed; mise could not provide $command" "$err" ||
+  fail "the recursion diagnostic preserves the literal command name" "$(cat "$err")"
+
+pass "a recursion diagnostic treats shell characters in command names as data"
