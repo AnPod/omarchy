@@ -172,7 +172,30 @@ else
 fi
 SH
 
-chmod +x "$restart_bin/qs" "$restart_bin/quickshell" "$restart_bin/hyprctl" "$restart_bin/systemd-cat" "$restart_bin/systemctl"
+cat >"$restart_bin/busctl" <<'SH'
+#!/bin/bash
+if [[ -z ${OMARCHY_TEST_NOTIFICATION_CHECKS:-} ]]; then
+  echo 'b false'
+else
+  checks=0
+  [[ ! -f $OMARCHY_TEST_NOTIFICATION_CHECKS ]] || read -r checks <"$OMARCHY_TEST_NOTIFICATION_CHECKS"
+  (( checks += 1 ))
+  printf '%s\n' "$checks" >"$OMARCHY_TEST_NOTIFICATION_CHECKS"
+  # The service was running before the restart and, when asked to, never
+  # comes back afterwards.
+  if [[ ${OMARCHY_TEST_NOTIFICATIONS_DIE:-0} == 1 ]]; then
+    (( checks == 1 )) && echo 'b true' || echo 'b false'
+    exit 0
+  fi
+  if (( checks == 1 || checks >= 4 )); then
+    echo 'b true'
+  else
+    echo 'b false'
+  fi
+fi
+SH
+
+chmod +x "$restart_bin/qs" "$restart_bin/quickshell" "$restart_bin/hyprctl" "$restart_bin/systemd-cat" "$restart_bin/systemctl" "$restart_bin/busctl"
 
 sleep 30 &
 restart_pid_one=$!
@@ -194,6 +217,7 @@ OMARCHY_TEST_DISPATCH_LOG="$dispatch_log" \
 OMARCHY_TEST_IPC_LOG="$ipc_log" \
 OMARCHY_TEST_SESSION_PATH="$restart_root" \
 OMARCHY_TEST_TRANSIENT_ENV=leaked \
+OMARCHY_TEST_NOTIFICATION_CHECKS="$test_tmp/notification-checks" \
   timeout 5 "$ROOT/bin/omarchy-restart-shell"
 
 if kill -0 "$restart_pid_one" 2>/dev/null; then
@@ -213,6 +237,8 @@ grep -F "kill -p $restart_root/shell --any-display" "$restart_log" >/dev/null ||
 grep -F 'hl.dsp.exec_cmd("omarchy-launch-shell")' "$dispatch_log" >/dev/null || fail "restart launches the fresh shell through Hyprland"
 grep -F "ipc -n -p $restart_root/shell call -- shell ping" "$ipc_log" >/dev/null || fail "restart checks readiness in the session checkout"
 pass "restart replaces duplicate shell instances from the session checkout"
+[[ $(<"$test_tmp/notification-checks") == 4 ]] || fail "restart waits for the existing notification service after core IPC is ready"
+pass "restart waits for notification readiness before one-time update hooks"
 
 : >"$restart_log"
 printf '303\n' >"$restart_state"
@@ -265,3 +291,86 @@ restart_pid_one=""
 grep -F "ipc -n -p $restart_root/shell call -- lock lock" "$ipc_log" >/dev/null || fail "dead-lock recovery re-acquires the session lock"
 grep -F "ipc -n -p $restart_root/shell call -- lock status" "$ipc_log" >/dev/null || fail "dead-lock recovery waits for the lock to become secure"
 pass "restart recovers a locked session whose lock client died"
+
+# Lock recovery must not wait on the notification plugin: a stranded user gets
+# the lock back even when notifications never return, and the restart then
+# reports the missing service rather than claiming success.
+sleep 30 &
+restart_pid_one=$!
+printf '%s\n' "$restart_pid_one" >"$restart_state"
+rm -f "$restart_state.locked" "$test_tmp/notification-checks"
+: >"$restart_log"
+: >"$ipc_log"
+
+if PATH="$restart_bin:$PATH" \
+  OMARCHY_PATH="$restart_root" \
+  XDG_RUNTIME_DIR="$runtime_dir" \
+  OMARCHY_TEST_SESSION_LOCKED=1 \
+  OMARCHY_TEST_QS_STATE="$restart_state" \
+  OMARCHY_TEST_QS_LOG="$restart_log" \
+  OMARCHY_TEST_QS_ENV_LOG="$restart_env_log" \
+  OMARCHY_TEST_DISPATCH_LOG="$dispatch_log" \
+  OMARCHY_TEST_IPC_LOG="$ipc_log" \
+  OMARCHY_TEST_SESSION_PATH="$restart_root" \
+  OMARCHY_TEST_NOTIFICATION_CHECKS="$test_tmp/notification-checks" \
+  OMARCHY_TEST_NOTIFICATIONS_DIE=1 \
+  timeout 10 "$ROOT/bin/omarchy-restart-shell" >"$test_tmp/dead-notifications.out" 2>&1; then
+  fail "a restart whose notification service never returns must not report success"
+fi
+wait "$restart_pid_one" 2>/dev/null || true
+restart_pid_one=""
+grep -F "ipc -n -p $restart_root/shell call -- lock lock" "$ipc_log" >/dev/null || fail "lock recovery waited on the notification service" "$(cat "$ipc_log")"
+[[ -f $restart_state.locked ]] || fail "lock recovery did not re-secure the session without notifications"
+grep -q "notification service did not become ready" "$test_tmp/dead-notifications.out" || fail "a missing notification service is not reported" "$(cat "$test_tmp/dead-notifications.out")"
+pass "restart recovers the lock even when the notification service never returns"
+
+# Exercise both real cleanup functions with argv boundaries preserved and no
+# live processes involved. Only explicit Omarchy selectors establish ownership.
+orphan_proc="$test_tmp/orphan-proc"
+omarchy_path="$test_tmp/omarchy checkout"
+config_dir="$omarchy_path/shell"
+
+proc_fixture() {
+  local pid=$1
+  shift
+  mkdir -p "$orphan_proc/$pid"
+  printf '%s\0' "$@" >"$orphan_proc/$pid/cmdline"
+}
+
+proc_fixture 9001 quickshell -c clock
+proc_fixture 9002 /usr/bin/quickshell --path=/independent/shell
+proc_fixture 9003 quickshell
+proc_fixture 9004 quickshell -c omarchy-clock
+proc_fixture 9005 quickshell --config=omarchy-clock
+proc_fixture 9006 quickshell --path="$config_dir-extra"
+proc_fixture 9007 /usr/bin/not-quickshell -c omarchy
+proc_fixture 9008 /usr/bin/quickshell-helper -p "$config_dir"
+proc_fixture 9009 quickshell -p /independent/shell
+proc_fixture 9010 quickshell --path /independent/shell
+proc_fixture 9011 quickshell --config clock
+proc_fixture 9012 quickshell -p "$config_dir-extra"
+proc_fixture 9013 quickshell --path "$config_dir-extra"
+proc_fixture 9014 quickshell -p
+proc_fixture 9015 quickshell -c
+proc_fixture 9101 quickshell -n -p "$config_dir"
+proc_fixture 9102 /usr/bin/quickshell --path "$config_dir"
+proc_fixture 9103 quickshell --path="$config_dir"
+proc_fixture 9104 quickshell -c omarchy
+proc_fixture 9105 quickshell --config omarchy
+proc_fixture 9106 quickshell --config=omarchy
+
+for command in omarchy-launch-shell omarchy-restart-shell; do
+  reaped=$(
+    # Source only the function so the command's other lifecycle actions do not run.
+    source <(sed -n '/^reap_orphan_quickshell()/,/^}/p' "$ROOT/bin/$command")
+    killed=()
+    kill() { killed+=("$1"); }
+    OMARCHY_PATH="$omarchy_path"
+    CONFIG_DIR="$config_dir"
+    OMARCHY_TEST_PROC_ROOT="$orphan_proc" reap_orphan_quickshell
+    printf '%s\n' "${killed[@]}"
+  )
+  [[ $reaped == $'9101\n9102\n9103\n9104\n9105\n9106' ]] ||
+    fail "$command cleanup targets only explicit Omarchy configs" "reaped=$reaped"
+  pass "$command cleanup spares independent widgets and targets exact Omarchy configs"
+done
