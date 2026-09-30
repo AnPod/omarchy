@@ -22,6 +22,15 @@ menu_log="$test_tmp/menu"
 muse_login_log="$test_tmp/muse-login"
 mkdir -p "$mock_bin" "$test_home"
 
+cat >"$mock_bin/omarchy-install-chromium-claude" <<'SH'
+#!/bin/bash
+echo claude-extension >>"$OMARCHY_TEST_STUB_LOG"
+if [[ ${OMARCHY_TEST_EXTENSION_FAIL:-false} == "true" ]]; then
+  echo "Extension installation failed" >&2
+  exit 1
+fi
+SH
+
 cat >"$mock_bin/omarchy-notification-send" <<'SH'
 #!/bin/bash
 printf '%s\0' "$@" >>"$OMARCHY_TEST_NOTIFICATION_HISTORY"
@@ -361,6 +370,25 @@ SH
 chmod +x "$mock_bin/omarchy-agent"
 hash -r
 
+# Simulate a provider whose explicit mise package mapping was omitted.
+missing_package_command="$test_tmp/default-agent-missing-package"
+sed 's/; agent_package="npm:@github\/copilot"//' "$ROOT/bin/omarchy-default-agent" >"$missing_package_command"
+printf '%s\n' pi >"$agent_file"
+: >"$mise_log"
+: >"$mise_history"
+: >"$terminal_log"
+: >"$agent_open_log"
+if bash "$missing_package_command" --install copilot >"$test_tmp/missing-package-output" 2>&1; then
+  fail "default agent rejects a missing mise package mapping"
+fi
+grep -Fq "no install source for GitHub Copilot" "$test_tmp/missing-package-output" ||
+  fail "default agent explains a missing mise package mapping"
+[[ $(<"$agent_file") == "pi" ]] || fail "missing package mapping preserves the current default agent"
+[[ ! -s $mise_log && ! -s $mise_history ]] || fail "missing package mapping never calls mise"
+[[ ! -s $terminal_log ]] || fail "missing package mapping never opens an installation terminal"
+[[ ! -s $agent_open_log ]] || fail "missing package mapping never launches an agent"
+pass "default agent rejects a missing mise package mapping without side effects"
+
 declare -A expected_agents=(
   [pi]="pi"
   [omp]="omp"
@@ -398,7 +426,7 @@ declare -A expected_packages=(
   [crush]="$crush_package"
   [grok]="$grok_package"
   [agy]="$agy_package"
-  [copilot]="copilot"
+  [copilot]="npm:@github/copilot"
   [cursor-agent]="$cursor_agent_package"
   [muse]="$muse_package"
 )
@@ -406,8 +434,15 @@ declare -A expected_packages=(
 for selection in "${!expected_agents[@]}"; do
   expected=${expected_agents[$selection]}
   : >"$agent_open_log"
+  : >"$stub_log"
   OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent "$selection"
   [[ $(omarchy-default-agent) == $expected ]] || fail "default agent canonicalizes $selection"
+
+  if [[ $expected == "claude" ]]; then
+    grep -qx claude-extension "$stub_log" || fail "Claude selection installs the browser extension"
+  else
+    [[ ! -s $stub_log ]] || fail "other agents do not install the Claude extension"
+  fi
 
   mapfile -d '' -t mise_args <"$mise_log"
   [[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" ]] ||
@@ -427,6 +462,14 @@ pass "default agent selects and opens every supported provider and alias"
 pass "default agent stores its selection in Omarchy user config"
 
 OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
+: >"$agent_open_log"
+OMARCHY_TEST_AGENT_INSTALLED=true OMARCHY_TEST_EXTENSION_FAIL=true omarchy-default-agent claude >"$test_tmp/extension-failure" 2>&1
+[[ $(omarchy-default-agent) == "claude" ]] || fail "extension installation failure still selects Claude"
+mapfile -d '' -t agent_open_args <"$agent_open_log"
+[[ ${agent_open_args[*]} == "omarchy-agent" ]] || fail "extension installation failure still launches Claude"
+[[ ! -s $test_tmp/extension-failure ]] || fail "extension installation failure is silent"
+pass "extension installation failure silently continues selecting and launching Claude"
+OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent pi
 : >"$notification_history"
 : >"$agent_open_log"
 : >"$terminal_log"
@@ -440,7 +483,7 @@ mapfile -d '' -t terminal_args <"$terminal_log"
 
 omarchy-default-agent --install github-copilot >"$test_tmp/install-output"
 mapfile -d '' -t mise_args <"$mise_log"
-[[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" && ${mise_args[2]} == "copilot" ]] ||
+[[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" && ${mise_args[2]} == "npm:@github/copilot" ]] ||
   fail "visible agent installation activates the provider globally through mise"
 [[ $(omarchy-default-agent) == "copilot" ]] || fail "visible agent installation changes the selection after mise succeeds"
 [[ ! -s $notification_history ]] || fail "visible agent installation leaves progress to the terminal"
@@ -458,7 +501,7 @@ OMARCHY_TEST_AGENT_INSTALLED=true omarchy-default-agent github-copilot
 [[ ! -s $terminal_log ]] || fail "installed agent selection skips the terminal"
 [[ ! -s $notification_history ]] || fail "installed agent selection skips notifications"
 mapfile -d '' -t mise_args <"$mise_log"
-[[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" && ${mise_args[2]} == "copilot" ]] ||
+[[ ${mise_args[0]} == "use" && ${mise_args[1]} == "-g" && ${mise_args[2]} == "npm:@github/copilot" ]] ||
   fail "default agent still activates an installed provider globally through mise"
 mapfile -d '' -t agent_open_args <"$agent_open_log"
 [[ ${#agent_open_args[@]} == 1 && ${agent_open_args[0]} == "omarchy-agent" ]] ||
