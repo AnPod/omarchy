@@ -8,15 +8,33 @@
 # audio still playing), so the Hyprland NVIDIA env only applies when NVIDIA is
 # the display GPU.
 #
-# sysfs exposes which VGA device drives the display via boot_vga. When no
-# device claims it (attribute missing or unreadable), assume NVIDIA is the
+# Prefer connected DRM displays over the boot GPU, which can differ when an
+# external monitor is attached. If no connector is connected, fall back to
+# boot_vga. When no device claims it (attribute missing or unreadable), assume NVIDIA is the
 # display GPU to preserve the current behavior on machines we cannot tell.
 #
 # Read the cached sysfs IDs rather than lspci, which reads PCI config space and
 # resumes runtime-suspended GPUs.
 pci_devices_path="${OMARCHY_PCI_DEVICES_PATH:-/sys/bus/pci/devices}"
+drm_path="${OMARCHY_DRM_PATH:-/sys/class/drm}"
 
 shopt -s nullglob
+
+connected=0
+for connector in "$drm_path"/card*-*; do
+  [[ -f $connector/status ]] || continue
+  [[ $(< "$connector/status") == "connected" ]] || continue
+  connected=1
+  card=${connector##*/}
+  card=${card%%-*}
+  vendor_file="$drm_path/$card/device/vendor"
+  [[ -f $vendor_file ]] || continue
+  [[ $(< "$vendor_file") == "0x10de" ]] && exit 0
+done
+
+if (( connected )); then
+  exit 1
+fi
 
 nvidia_boot=0
 other_boot=0
