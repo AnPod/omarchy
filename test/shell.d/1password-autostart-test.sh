@@ -94,6 +94,46 @@ chmod +x "$mock_bin"/*
 PATH="$mock_bin:$ROOT/bin:$PATH" bash "$ROOT/bin/omarchy-install-service-1password"
 [[ $(cat "$entry") == "Exec=/opt/1Password/1password --force-device-scale-factor=1 --silent %U" ]] || fail "installer pins autostart after package installation"
 pass "installer pins autostart after package installation"
+assert_unchanged "refresh after installation preserves contents and inode"
+
+cat >"$mock_bin/omarchy-pkg-add" <<'SH'
+#!/bin/bash
+[[ $* == "1password 1password-cli" ]]
+SH
+cat >"$mock_bin/setsid" <<'SH'
+#!/bin/bash
+[[ $* == "uwsm-app -- 1password" ]] || exit 1
+sleep 0.2
+printf 'Exec=/opt/1Password/1password --silent %%U\n' >"$HOME/.config/autostart/com.onepassword.OnePassword.desktop"
+SH
+rm "$entry"
+PATH="$mock_bin:$ROOT/bin:$PATH" timeout 10 bash "$ROOT/bin/omarchy-install-service-1password"
+[[ $(cat "$entry") == "Exec=/opt/1Password/1password --force-device-scale-factor=1 --silent %U" ]] || fail "installer pins entry created after opening app"
+pass "installer pins entry created after opening app"
+assert_unchanged "refresh after delayed creation preserves contents and inode"
+
+cat >"$mock_bin/setsid" <<'SH'
+#!/bin/bash
+exit 0
+SH
+cat >"$mock_bin/sleep" <<'SH'
+#!/bin/bash
+[[ $* == "0.1" ]] || exit 1
+printf '%s\n' "$1" >>"$HOME/poll-intervals"
+/bin/sleep "$1"
+SH
+chmod +x "$mock_bin/sleep"
+rm "$entry"
+PATH="$mock_bin:$ROOT/bin:$PATH" timeout 10 bash "$ROOT/bin/omarchy-install-service-1password"
+[[ ! -e $entry ]] || fail "installer succeeds without an autostart entry"
+[[ $(wc -l <"$HOME/poll-intervals") == "30" ]] || fail "installer bounds polling to 30 short waits"
+pass "installer succeeds after bounded polling without an autostart entry"
+
+printf 'Exec=/opt/1Password/1password --silent %%U\n' >"$entry"
+"$helper"
+[[ $(cat "$entry") == "Exec=/opt/1Password/1password --force-device-scale-factor=1 --silent %U" ]] || fail "documented helper pins entry created after installation"
+pass "documented helper pins entry created after installation"
+assert_unchanged "repeated manual refresh preserves contents and inode"
 
 [[ -z $(find "$HOME/.config/autostart" -name '*.??????' -print) ]] || fail "temporary files are cleaned up"
 pass "temporary files are cleaned up"
