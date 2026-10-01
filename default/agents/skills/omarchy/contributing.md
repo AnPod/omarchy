@@ -23,12 +23,14 @@ description with steps to reproduce, and diagnostics. Gather them:
 omarchy version
 
 # Generate the diagnostic log (also written to /tmp/omarchy-debug.log)
-omarchy-debug --no-sudo --print
+omarchy debug --no-sudo --print
 
-# Interactive variant: `omarchy-debug` offers to upload the log to
+# Interactive variant: `omarchy debug` offers to upload the log to
 # logs.omarchy.org (expires after 24h) and prints a shareable URL to
 # include in the issue.
 ```
+
+If the route is unknown, run `omarchy-debug --no-sudo --print`.
 
 **Capture the problem on screen.** A screenshot or short recording of the bug
 is often worth more than the description — see [`capture.md`](capture.md) for
