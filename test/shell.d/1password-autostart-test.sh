@@ -129,6 +129,67 @@ PATH="$mock_bin:$ROOT/bin:$PATH" timeout 10 bash "$ROOT/bin/omarchy-install-serv
 [[ $(wc -l <"$HOME/poll-intervals") == "30" ]] || fail "installer bounds polling to 30 short waits"
 pass "installer succeeds after bounded polling without an autostart entry"
 
+# Each mocked wait checks that the installer left the previous write untouched,
+# then advances the app's in-place write by one deterministic stage.
+cat >"$mock_bin/sleep" <<'SH'
+#!/bin/bash
+set -euo pipefail
+[[ $* == "0.1" ]] || exit 1
+entry="$HOME/.config/autostart/com.onepassword.OnePassword.desktop"
+count=0
+if [[ -f $HOME/poll-intervals ]]; then
+  count=$(wc -l <"$HOME/poll-intervals")
+fi
+if (( count > 0 )); then
+  cmp -s "$entry" "$HOME/write-snapshot"
+  [[ $(stat -c %i "$entry") == "$(cat "$HOME/write-inode")" ]]
+fi
+printf '%s\n' "$1" >>"$HOME/poll-intervals"
+stage="$HOME/stages/$(( count + 1 ))"
+if [[ -f $stage ]]; then
+  cat "$stage" >"$entry"
+fi
+cp "$entry" "$HOME/write-snapshot"
+stat -c %i "$entry" >"$HOME/write-inode"
+SH
+
+for scenario in partial append timeout; do
+  rm -f "$entry" "$HOME/poll-intervals"
+  mkdir -p "$HOME/stages"
+  rm -f "$HOME/stages/"*
+  case "$scenario" in
+    partial)
+      : >"$HOME/stages/1"
+      printf '[Desktop Entry]\nExec=' >"$HOME/stages/2"
+      printf '[Desktop Entry]\nExec=1password' >"$HOME/stages/3"
+      printf '[Desktop Entry]\nExec=1password --silent %%U\nX-Test=preserved\n' >"$HOME/stages/4"
+      printf '[Desktop Entry]\nExec=1password --force-device-scale-factor=1 --silent %%U\nX-Test=preserved\n' >"$test_tmp/expected"
+      expected_waits=5
+      ;;
+    append)
+      printf '[Desktop Entry]\nExec=/opt/1Password/1password\n' >"$HOME/stages/1"
+      printf '[Desktop Entry]\nExec=/opt/1Password/1password --silent %%U\nX-Test=' >"$HOME/stages/2"
+      printf '[Desktop Entry]\nExec=/opt/1Password/1password --silent %%U\nX-Test=preserved\n' >"$HOME/stages/3"
+      printf '[Desktop Entry]\nExec=/opt/1Password/1password --force-device-scale-factor=1 --silent %%U\nX-Test=preserved\n' >"$test_tmp/expected"
+      expected_waits=4
+      ;;
+    timeout)
+      printf '[Desktop Entry]\nExec=1password' >"$HOME/stages/1"
+      cp "$HOME/stages/1" "$test_tmp/expected"
+      expected_waits=30
+      ;;
+  esac
+  PATH="$mock_bin:$ROOT/bin:$PATH" timeout 10 bash "$ROOT/bin/omarchy-install-service-1password"
+  cmp -s "$entry" "$test_tmp/expected" || fail "$scenario staged write preserves all contents"
+  [[ $(wc -l <"$HOME/poll-intervals") == "$expected_waits" ]] || fail "$scenario waits for complete and stable entry"
+  if [[ $scenario == "timeout" ]]; then
+    [[ $(stat -c %i "$entry") == "$(cat "$HOME/write-inode")" ]] || fail "incomplete entry inode remains unchanged on timeout"
+  else
+    assert_unchanged "$scenario completed entry refresh preserves contents and inode"
+  fi
+  pass "$scenario staged write remains untouched until ready"
+done
+
 printf 'Exec=/opt/1Password/1password --silent %%U\n' >"$entry"
 "$helper"
 [[ $(cat "$entry") == "Exec=/opt/1Password/1password --force-device-scale-factor=1 --silent %U" ]] || fail "documented helper pins entry created after installation"
