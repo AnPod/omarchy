@@ -88,7 +88,87 @@ run_setup --no-rebuild
 [[ ! -e $drop_in ]] || fail "empty device prevents drop-in creation"
 grep -Fx "Warning: Could not determine resume device for $fixture/swap/swapfile" "$fixture/stderr" >/dev/null ||
   fail "empty device warns on stderr"
-pass "empty device prevents drop-in creation and warns"
+grep -Fx 'HOOKS+=(resume)' "$marker" >/dev/null || fail "empty device leaves resume hook marker"
+pass "empty device leaves retryable state and warns"
+
+DEVICE='/dev/nvme0n1p2[/@swap]'
+run_setup
+expected='KERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2 resume_offset=12345"'
+[[ $(cat "$drop_in") == "$expected" ]] || fail "retry creates exact resume drop-in"
+[[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "retry rebuilds once"
+run_setup
+[[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "configured retry does not rebuild again"
+pass "retry creates missing drop-in and rebuilds only once"
+
+reset_fixture
+echo 'HOOKS+=(resume)' > "$marker"
+run_setup --no-rebuild
+[[ $(cat "$drop_in") == "$expected" ]] || fail "missing drop-in retry creates configuration with --no-rebuild"
+[[ ! -e $fixture/rebuilds ]] || fail "missing drop-in retry respects --no-rebuild"
+pass "missing drop-in retry respects --no-rebuild"
+
+for incomplete in empty device offset both; do
+  for rebuild in enabled disabled; do
+    reset_fixture
+    echo 'HOOKS+=(resume)' > "$marker"
+    case "$incomplete" in
+      empty) : > "$drop_in" ;;
+      device) printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume_offset=6789 splash"' > "$drop_in" ;;
+      offset) printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume=/dev/existing splash"' > "$drop_in" ;;
+      both) printf '# resume=/dev/comment resume_offset=999\nKERNEL_CMDLINE[default]+=" quiet splash"' > "$drop_in" ;;
+    esac
+    cp "$drop_in" "$fixture/original"
+    DEVICE=''
+    OFFSET=''
+    run_setup
+    cmp -s "$drop_in" "$fixture/original" || fail "unavailable values preserve $incomplete drop-in"
+    [[ ! -e $fixture/rebuilds ]] || fail "unavailable values do not rebuild $incomplete drop-in"
+
+    DEVICE='/dev/nvme0n1p2[/@swap]'
+    OFFSET=12345
+    if [[ $rebuild == "enabled" ]]; then
+      run_setup
+    else
+      run_setup --no-rebuild
+    fi
+    case "$incomplete" in
+      empty|both) added=' resume=/dev/nvme0n1p2 resume_offset=12345' ;;
+      device) added=' resume=/dev/nvme0n1p2' ;;
+      offset) added=' resume_offset=12345' ;;
+    esac
+    { cat "$fixture/original"; printf '\nKERNEL_CMDLINE[default]+="%s"\n' "$added"; } > "$fixture/expected"
+    cmp -s "$drop_in" "$fixture/expected" || fail "retry completes $incomplete drop-in and preserves content"
+    if [[ $rebuild == "enabled" ]]; then
+      [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "retry rebuilds $incomplete drop-in exactly once"
+    else
+      [[ ! -e $fixture/rebuilds ]] || fail "retry of $incomplete drop-in respects --no-rebuild"
+    fi
+    run_setup
+    cmp -s "$drop_in" "$fixture/expected" || fail "completed $incomplete drop-in stays unchanged"
+    if [[ $rebuild == "enabled" ]]; then
+      [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "completed $incomplete drop-in does not rebuild again"
+    else
+      [[ ! -e $fixture/rebuilds ]] || fail "completed $incomplete drop-in does not rebuild"
+    fi
+    pass "$incomplete drop-in completes on second run with rebuild $rebuild"
+  done
+done
+
+for missing in device offset; do
+  reset_fixture
+  echo 'HOOKS+=(resume)' > "$marker"
+  if [[ $missing == "device" ]]; then
+    DEVICE=''
+  else
+    OFFSET=''
+  fi
+  run_setup
+  [[ ! -e $drop_in ]] || fail "unavailable $missing leaves missing drop-in retryable"
+  [[ ! -e $fixture/rebuilds ]] || fail "unavailable $missing does not rebuild"
+  grep -Fx "Warning: Could not determine resume $missing for $fixture/swap/swapfile" "$fixture/stderr" >/dev/null ||
+    fail "unavailable $missing warns on retry"
+  pass "missing drop-in retry waits for available $missing"
+done
 
 reset_fixture
 run_setup --no-rebuild
@@ -148,3 +228,65 @@ grep -Fx 'KERNEL_CMDLINE[default]+=" resume=/dev/existing resume_offset=12345"' 
   fail "existing empty-offset repair still works"
 [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "offset repair still rebuilds"
 pass "existing empty-offset repair still works"
+
+for rebuild in enabled disabled; do
+  prepare_repair
+  printf '# custom comment\nKERNEL_CMDLINE[default]+=" quiet resume= resume_offset="\n# keep this too\n' > "$drop_in"
+  if [[ $rebuild == "enabled" ]]; then
+    run_setup
+  else
+    run_setup --no-rebuild
+  fi
+  expected=$(printf '# custom comment\nKERNEL_CMDLINE[default]+=" quiet resume=/dev/nvme0n1p2 resume_offset=12345"\n# keep this too')
+  [[ $(cat "$drop_in") == "$expected" ]] || fail "dual repair preserves surrounding configuration and comments"
+  if [[ $rebuild == "enabled" ]]; then
+    [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "dual repair rebuilds exactly once"
+  else
+    [[ ! -e $fixture/rebuilds ]] || fail "dual repair respects --no-rebuild"
+  fi
+  pass "dual repair with rebuild $rebuild preserves comments"
+done
+
+for empty_token in device-end offset-middle; do
+  for rebuild in enabled disabled; do
+    prepare_repair
+    case "$empty_token" in
+      device-end)
+        printf 'KERNEL_CMDLINE[default]+=" resume="\n' > "$drop_in"
+        expected=$(printf 'KERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2"\n\nKERNEL_CMDLINE[default]+=" resume_offset=12345"')
+        ;;
+      offset-middle)
+        printf '# keep this\nKERNEL_CMDLINE[default]+=" resume=/dev/existing resume_offset= splash" # keep this too\n' > "$drop_in"
+        expected=$(printf '# keep this\nKERNEL_CMDLINE[default]+=" resume=/dev/existing resume_offset=12345 splash" # keep this too')
+        ;;
+    esac
+    cp "$drop_in" "$fixture/original"
+    DEVICE=''
+    OFFSET=''
+    run_setup
+    cmp -s "$drop_in" "$fixture/original" || fail "unavailable values preserve $empty_token empty token"
+    [[ ! -e $fixture/rebuilds ]] || fail "unavailable values do not rebuild $empty_token empty token"
+
+    DEVICE='/dev/nvme0n1p2[/@swap]'
+    OFFSET=12345
+    if [[ $rebuild == "enabled" ]]; then
+      run_setup
+    else
+      run_setup --no-rebuild
+    fi
+    [[ $(cat "$drop_in") == "$expected" ]] || fail "retry repairs $empty_token empty token and preserves content"
+    if [[ $rebuild == "enabled" ]]; then
+      [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "$empty_token repair rebuilds exactly once"
+    else
+      [[ ! -e $fixture/rebuilds ]] || fail "$empty_token repair respects --no-rebuild"
+    fi
+    run_setup
+    [[ $(cat "$drop_in") == "$expected" ]] || fail "completed $empty_token repair stays unchanged"
+    if [[ $rebuild == "enabled" ]]; then
+      [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "completed $empty_token repair does not rebuild again"
+    else
+      [[ ! -e $fixture/rebuilds ]] || fail "completed $empty_token repair does not rebuild"
+    fi
+    pass "$empty_token empty token repairs with rebuild $rebuild"
+  done
+done
