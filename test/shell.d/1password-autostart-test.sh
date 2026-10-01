@@ -153,7 +153,7 @@ cp "$entry" "$HOME/write-snapshot"
 stat -c %i "$entry" >"$HOME/write-inode"
 SH
 
-for scenario in partial append timeout; do
+for scenario in partial append no-newline late-29 late-30 timeout; do
   rm -f "$entry" "$HOME/poll-intervals"
   mkdir -p "$HOME/stages"
   rm -f "$HOME/stages/"*
@@ -173,8 +173,19 @@ for scenario in partial append timeout; do
       printf '[Desktop Entry]\nExec=/opt/1Password/1password --force-device-scale-factor=1 --silent %%U\nX-Test=preserved\n' >"$test_tmp/expected"
       expected_waits=4
       ;;
+    no-newline)
+      printf '[Desktop Entry]\nExec=1password --silent %%U' >"$HOME/stages/1"
+      printf '[Desktop Entry]\nExec=1password --force-device-scale-factor=1 --silent %%U' >"$test_tmp/expected"
+      expected_waits=2
+      ;;
+    late-29|late-30)
+      : >"$HOME/stages/1"
+      printf '[Desktop Entry]\nExec=1password --silent %%U\n' >"$HOME/stages/${scenario#late-}"
+      printf '[Desktop Entry]\nExec=1password --force-device-scale-factor=1 --silent %%U\n' >"$test_tmp/expected"
+      expected_waits=30
+      ;;
     timeout)
-      printf '[Desktop Entry]\nExec=1password' >"$HOME/stages/1"
+      printf '[Desktop Entry]\nExec=' >"$HOME/stages/1"
       cp "$HOME/stages/1" "$test_tmp/expected"
       expected_waits=30
       ;;
