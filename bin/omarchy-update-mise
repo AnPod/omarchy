@@ -5,6 +5,12 @@
 if omarchy-cmd-present mise; then
   echo -e "\e[32m\nUpdate mise tools\e[0m"
 
+  # Prune before upgrading so the currently configured versions survive and
+  # remain available to running sessions after the upgrade.
+  if ! mise prune --yes; then
+    echo "Could not prune unused mise tools; continuing with the update." >&2
+  fi
+
   # mise withholds releases younger than its cooldown, so tools stay behind for
   # days after they ship. Running omarchy update is the user asking for current
   # versions now, which is the same call the mup alias makes by hand.
