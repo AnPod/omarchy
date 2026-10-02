@@ -27,16 +27,19 @@ if [[ -z $browser_exec ]]; then
   exit 1
 fi
 
-# Stable, filesystem-safe id from the app URL (host + path, no query/fragment).
+# Readable, filesystem-safe id with a hash of the full URL without query/fragment.
 webapp_slug() {
-  local raw host path slug
+  local raw host path slug hash
   raw=${1%%[\?#]*}
+  hash=$(printf '%s' "$raw" | sha256sum)
   raw=${raw#*://}
   host=${raw%%/*}
   path=${raw#"$host"}
   slug=$(printf '%s%s' "$host" "$path" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//; s/-+/-/g')
-  [[ -n $slug ]] || slug="webapp"
-  printf '%s\n' "$slug"
+  if [[ -z $slug ]]; then
+    slug="webapp"
+  fi
+  printf '%s-%s\n' "$slug" "${hash:0:12}"
 }
 
 data_home=${XDG_DATA_HOME:-$HOME/.local/share}
