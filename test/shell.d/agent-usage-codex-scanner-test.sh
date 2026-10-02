@@ -4,6 +4,8 @@ source "$(dirname "$0")/base-test.sh"
 
 require_command jq
 require_command python3
+require_command git
+require_command rg
 
 TEST_HOME=$(mktemp -d)
 trap 'rm -rf "$TEST_HOME"' EXIT
@@ -77,11 +79,14 @@ pass "Codex collector identifies itself with an empty limits list"
 
 # Pi and omp can both spend a Codex subscription without creating native
 # Codex sessions. Their compatible JSONL transcripts must be included.
+# Session data must be scanned even in an ignored Git home or a hidden file.
 PI_HOME=$(mktemp -d)
 trap 'rm -rf "$TEST_HOME" "$PI_HOME"' EXIT
+git init -q "$PI_HOME"
+echo '*' >"$PI_HOME/.gitignore"
 mkdir -p "$PI_HOME/bin" "$PI_HOME/.pi/agent/sessions/project" "$PI_HOME/.omp/agent/sessions/project"
 cp "$TEST_HOME/bin/codex" "$PI_HOME/bin/codex"
-cat >"$PI_HOME/.pi/agent/sessions/project/pi.jsonl" <<EOF
+cat >"$PI_HOME/.pi/agent/sessions/project/.pi.jsonl" <<EOF
 {"type":"message","id":"pi-1","timestamp":"$timestamp","message":{"role":"assistant","provider":"openai-codex","api":"openai-codex-responses","model":"gpt-pi","usage":{"input":10,"output":4,"cacheRead":3,"cacheWrite":2,"totalTokens":19}}}
 EOF
 cat >"$PI_HOME/.omp/agent/sessions/project/omp.jsonl" <<EOF
