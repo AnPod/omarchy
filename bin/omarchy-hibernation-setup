@@ -64,15 +64,15 @@ create_resume_drop_in() {
   sudo swapon -p 0 "$SWAP_FILE" 2>/dev/null
   RESUME_DEVICE=$(findmnt -no SOURCE -T "$SWAP_FILE" | sed 's/\[.*\]//')
   RESUME_OFFSET=$(sudo btrfs inspect-internal map-swapfile -r "$SWAP_FILE")
-  if [[ -n $RESUME_DEVICE && -n $RESUME_OFFSET ]]; then
+  if [[ $RESUME_DEVICE =~ ^/dev/[A-Za-z0-9_./:+-]+$ && $RESUME_OFFSET =~ ^[0-9]+$ ]]; then
     sudo mkdir -p /etc/limine-entry-tool.d || return 1
     echo "KERNEL_CMDLINE[default]+=\" resume=$RESUME_DEVICE resume_offset=$RESUME_OFFSET\"" | sudo tee "$RESUME_DROP_IN" >/dev/null || return 1
     return 0
   else
-    if [[ -z $RESUME_DEVICE ]]; then
+    if [[ ! $RESUME_DEVICE =~ ^/dev/[A-Za-z0-9_./:+-]+$ ]]; then
       echo "Warning: Could not determine resume device for $SWAP_FILE" >&2
     fi
-    if [[ -z $RESUME_OFFSET ]]; then
+    if [[ ! $RESUME_OFFSET =~ ^[0-9]+$ ]]; then
       echo "Warning: Could not determine resume offset for $SWAP_FILE" >&2
     fi
   fi
@@ -93,7 +93,7 @@ if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; 
     MISSING_RESUME_PARAMS=""
     if ! grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?="([^"]*[[:space:]])?resume=[^[:space:]"]+' "$RESUME_DROP_IN"; then
       RESUME_DEVICE=$(findmnt -no SOURCE -T "$SWAP_FILE" | sed 's/\[.*\]//')
-      if [[ -n $RESUME_DEVICE ]]; then
+      if [[ $RESUME_DEVICE =~ ^/dev/[A-Za-z0-9_./:+-]+$ ]]; then
         if grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?="([^"]*[[:space:]])?resume=([[:space:]]|")' "$RESUME_DROP_IN"; then
           echo "Fixing empty resume device ($RESUME_DEVICE)"
           RESUME_DEVICE_ESCAPED=$(printf '%s' "$RESUME_DEVICE" | sed 's/[\\&|]/\\&/g')
@@ -107,7 +107,7 @@ if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; 
     fi
     if ! grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?="([^"]*[[:space:]])?resume_offset=[^[:space:]"]+' "$RESUME_DROP_IN"; then
       RESUME_OFFSET=$(sudo btrfs inspect-internal map-swapfile -r "$SWAP_FILE" 2>/dev/null)
-      if [[ -n $RESUME_OFFSET ]]; then
+      if [[ $RESUME_OFFSET =~ ^[0-9]+$ ]]; then
         if grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?="([^"]*[[:space:]])?resume_offset=([[:space:]]|")' "$RESUME_DROP_IN"; then
           echo "Fixing empty resume_offset ($RESUME_OFFSET)"
           if sudo sed -Ei "s|^([[:space:]]*KERNEL_CMDLINE\[default\]\+?=\"([^\"]*[[:space:]])?)resume_offset=([[:space:]]\|\")|\1resume_offset=$RESUME_OFFSET\3|" "$RESUME_DROP_IN"; then

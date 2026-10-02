@@ -190,12 +190,12 @@ expected=$(printf '# custom comment\nKERNEL_CMDLINE[default]+=" quiet resume=/de
 pass "empty device is repaired and rebuilt with surrounding content preserved"
 
 prepare_repair
+cp "$drop_in" "$fixture/original"
 DEVICE='/dev/mapper/swap\name&part|disk[/@swap]'
 run_setup --no-rebuild
-expected=$(printf '# custom comment\nKERNEL_CMDLINE[default]+=" quiet resume=%s resume_offset=6789 splash"' "${DEVICE%%\[*}")
-[[ $(cat "$drop_in") == "$expected" ]] || fail "device repair escapes sed replacement characters"
-[[ ! -e $fixture/rebuilds ]] || fail "device repair respects --no-rebuild"
-pass "device repair handles sed characters and --no-rebuild"
+cmp -s "$drop_in" "$fixture/original" || fail "device repair rejects sed replacement characters"
+[[ ! -e $fixture/rebuilds ]] || fail "rejected device does not rebuild"
+pass "device repair rejects sed replacement characters"
 
 prepare_repair
 cp "$drop_in" "$fixture/original"
@@ -289,4 +289,93 @@ for empty_token in device-end offset-middle; do
     fi
     pass "$empty_token empty token repairs with rebuild $rebuild"
   done
+done
+
+# Validate each discovered value independently on every write path.
+for parameter in device offset; do
+  if [[ $parameter == "device" ]]; then
+    invalid_values=('' '/tmp/swap' '/dev/' '/dev/swap name' $'/dev/swap\tname' $'/dev/swap\nname' '/dev/swap"name' "/dev/swap'name" '/dev/swap\name' '/dev/swap&name' '/dev/swap|name')
+  else
+    invalid_values=('' '123abc' '+123' '-123' '12 34' $'12\t34' $'12\n34' '12&34' '12|34' '12\34')
+  fi
+  for value in "${invalid_values[@]}"; do
+    for write_path in creation repair append; do
+      reset_fixture
+      if [[ $write_path != "creation" ]]; then
+        echo 'HOOKS+=(resume)' > "$marker"
+        if [[ $parameter == "device" ]]; then
+          if [[ $write_path == "repair" ]]; then
+            printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume= resume_offset=6789"\n' > "$drop_in"
+          else
+            printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume_offset=6789"' > "$drop_in"
+          fi
+        else
+          if [[ $write_path == "repair" ]]; then
+            printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume=/dev/existing resume_offset="\n' > "$drop_in"
+          else
+            printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume=/dev/existing"' > "$drop_in"
+          fi
+        fi
+        cp "$drop_in" "$fixture/original"
+      fi
+      if [[ $parameter == "device" ]]; then
+        DEVICE=$value
+      else
+        OFFSET=$value
+      fi
+      # Initial creation still installs the marker; configured retries never rebuild.
+      run_setup --no-rebuild
+      run_setup
+      if [[ $write_path == "creation" ]]; then
+        [[ ! -e $drop_in ]] || fail "invalid $parameter prevents creation"
+        grep -Fx "Warning: Could not determine resume $parameter for $fixture/swap/swapfile" "$fixture/stderr" >/dev/null ||
+          fail "invalid $parameter warns on creation retry"
+      else
+        cmp -s "$drop_in" "$fixture/original" || fail "invalid $parameter preserves $write_path drop-in"
+      fi
+      [[ ! -e $fixture/rebuilds ]] || fail "invalid $parameter does not rebuild on $write_path retry"
+    done
+  done
+  pass "invalid $parameter values are rejected on creation, repair, append, and retry"
+done
+
+for device in '/dev/nvme0n1p2[/@swap]' '/dev/mapper/swap_crypt-1'; do
+  for offset in 0 12345 00123; do
+    for write_path in creation repair append; do
+      for rebuild in enabled disabled; do
+        reset_fixture
+        DEVICE=$device
+        OFFSET=$offset
+        if [[ $write_path == "repair" ]]; then
+          echo 'HOOKS+=(resume)' > "$marker"
+          printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume= resume_offset="\n' > "$drop_in"
+          printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet resume=%s resume_offset=%s"\n' "${DEVICE%%\[*}" "$OFFSET" > "$fixture/expected"
+        else
+          if [[ $write_path == "append" ]]; then
+            echo 'HOOKS+=(resume)' > "$marker"
+            printf '# keep this\nKERNEL_CMDLINE[default]+=" quiet"' > "$drop_in"
+            cp "$drop_in" "$fixture/expected"
+            printf '\n' >> "$fixture/expected"
+          else
+            : > "$fixture/expected"
+          fi
+          printf 'KERNEL_CMDLINE[default]+=" resume=%s resume_offset=%s"\n' "${DEVICE%%\[*}" "$OFFSET" >> "$fixture/expected"
+        fi
+        if [[ $rebuild == "enabled" ]]; then
+          run_setup
+        else
+          run_setup --no-rebuild
+        fi
+        cmp -s "$drop_in" "$fixture/expected" || fail "valid values produce exact $write_path output"
+        run_setup
+        cmp -s "$drop_in" "$fixture/expected" || fail "valid $write_path retry is idempotent"
+        if [[ $rebuild == "enabled" ]]; then
+          [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "valid $write_path rebuilds exactly once"
+        else
+          [[ ! -e $fixture/rebuilds ]] || fail "valid $write_path respects --no-rebuild on setup and retry"
+        fi
+      done
+    done
+  done
+  pass "$device accepts zero, digits, and leading zeros on every write path"
 done
