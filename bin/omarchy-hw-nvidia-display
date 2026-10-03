@@ -9,8 +9,10 @@
 # the display GPU.
 #
 # Prefer connected DRM displays over the boot GPU, which can differ when an
-# external monitor is attached. If no connector is connected, fall back to
-# boot_vga. When no device claims it (attribute missing or unreadable), assume NVIDIA is the
+# external monitor is attached. Displays on both GPUs, as on a hybrid laptop
+# docked to ports wired to NVIDIA, do not say where the compositor renders, so
+# fall back to boot_vga then, as when nothing is connected. When no device
+# claims it (attribute missing or unreadable), assume NVIDIA is the
 # display GPU to preserve the current behavior on machines we cannot tell.
 #
 # Read the cached sysfs IDs rather than lspci, which reads PCI config space and
@@ -20,21 +22,22 @@ drm_path="${OMARCHY_DRM_PATH:-/sys/class/drm}"
 
 shopt -s nullglob
 
-connected=0
+nvidia_connected=0
+other_connected=0
+
 for connector in "$drm_path"/card*-*; do
   [[ -f $connector/status ]] || continue
   [[ $(< "$connector/status") == "connected" ]] || continue
-  connected=1
   card=${connector##*/}
   card=${card%%-*}
   vendor_file="$drm_path/$card/device/vendor"
   [[ -f $vendor_file ]] || continue
-  [[ $(< "$vendor_file") == "0x10de" ]] && exit 0
+  if [[ $(< "$vendor_file") == "0x10de" ]]; then
+    nvidia_connected=1
+  else
+    other_connected=1
+  fi
 done
-
-if (( connected )); then
-  exit 1
-fi
 
 nvidia_boot=0
 other_boot=0
@@ -56,7 +59,11 @@ for device in "$pci_devices_path"/*; do
   fi
 done
 
-if (( other_boot == 1 && nvidia_boot == 0 )); then
+if (( nvidia_connected && !other_connected )); then
+  exit 0
+elif (( other_connected && !nvidia_connected )); then
+  exit 1
+elif (( other_boot == 1 && nvidia_boot == 0 )); then
   exit 1
 else
   exit 0
