@@ -45,7 +45,7 @@ It's important to note that this install method is not compatible with Bitlocker
 
 ## The Hardware Clock
 
-Windows keeps the hardware clock (RTC) in local time; Linux expects it in UTC. After a Windows session, Omarchy can briefly come up with a clock that's ahead or behind by your UTC offset until NTP corrects it. That skew is more than cosmetic: a snapshot taken while the clock reads in the future — such as the one `omarchy update` takes before updating — won't appear in the Limine boot menu until real time actually passes its timestamp, because the snapshot sync only treats snapshots newer than the last one it saved as new.
+Windows keeps the hardware clock (RTC) in local time; Linux expects it in UTC. After a Windows session, Omarchy can briefly come up with a clock that's ahead or behind by your UTC offset until NTP corrects it. That skew is more than cosmetic: once a snapshot is taken while the clock reads in the future — such as the one `omarchy update` takes before updating — the snapshots after it won't appear in the Limine boot menu until real time actually passes that timestamp, because the snapshot sync only treats snapshots newer than the last one it saved as new.
 
 Pick one convention for the whole machine, then check the result with `timedatectl`:
 
@@ -57,7 +57,7 @@ Leave Linux as-is and make Windows read UTC instead of local time. From an admin
 reg add "HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation" /v RealTimeIsUniversal /t REG_DWORD /d 1 /f
 ```
 
-Reboot into Windows once so the time adjusts, then verify `timedatectl` reports `RTC in local TZ: no` from Omarchy.
+Reboot into Windows and let it set the time again (**Settings -> Time & language -> Date & time -> Sync now**), then boot Omarchy and check that `timedatectl` shows the same `RTC time` as `Universal time`.
 
 ### Keep the RTC in local time
 
@@ -67,4 +67,4 @@ Alternatively, tell Linux to read the clock the way Windows writes it:
 timedatectl set-local-rtc 1
 ```
 
-This is the smaller change, but it's the less common convention for Linux and `timedatectl` itself warns about it (DST transitions need the clock reset). Either choice fixes the skew; mixing the two is what breaks snapshot menu entries.
+Run it once `timedatectl` shows `System clock synchronized: yes`, since it writes the current time to the RTC; afterwards it shows `RTC in local TZ: yes`. This is the smaller change, but it's the less common convention for Linux and `timedatectl` itself warns about it (DST transitions need the clock reset). Either choice fixes the skew; mixing the two is what breaks snapshot menu entries.
