@@ -203,6 +203,7 @@ if [[ -n $translated_locale ]]; then
   LC_ALL="$translated_locale" run_helper start
   [[ -s $state_dir/inhibit-pid ]] || fail "translated locale publishes inhibitor state"
   read -r version locale_pid locale_start locale_owner locale_token <"$state_dir/inhibit-pid"
+  test_processes+=("$locale_pid")
   LC_ALL="$translated_locale" run_helper stop
   wait_dead "$locale_pid" || fail "translated locale inhibitor is stopped"
   [[ ! -e $state_dir ]] || fail "translated locale state is cleaned after stop"
