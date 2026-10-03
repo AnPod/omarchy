@@ -91,9 +91,9 @@ grep -Fx "Warning: Could not determine resume device for $fixture/swap/swapfile"
 grep -Fx 'HOOKS+=(resume)' "$marker" >/dev/null || fail "empty device leaves resume hook marker"
 pass "empty device leaves retryable state and warns"
 
-DEVICE='/dev/nvme0n1p2[/@swap]'
+DEVICE='/dev/mapper/crypt@home[/@swap]'
 run_setup
-expected='KERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2 resume_offset=12345"'
+expected='KERNEL_CMDLINE[default]+=" resume=/dev/mapper/crypt@home resume_offset=12345"'
 [[ $(cat "$drop_in") == "$expected" ]] || fail "retry creates exact resume drop-in"
 [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "retry rebuilds once"
 run_setup
@@ -101,8 +101,11 @@ run_setup
 pass "retry creates missing drop-in and rebuilds only once"
 
 reset_fixture
+DEVICE='/dev/nvme0n1p2[/@swap]'
+OFFSET=12345
 echo 'HOOKS+=(resume)' > "$marker"
 run_setup --no-rebuild
+expected='KERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2 resume_offset=12345"'
 [[ $(cat "$drop_in") == "$expected" ]] || fail "missing drop-in retry creates configuration with --no-rebuild"
 [[ ! -e $fixture/rebuilds ]] || fail "missing drop-in retry respects --no-rebuild"
 pass "missing drop-in retry respects --no-rebuild"
@@ -232,6 +235,15 @@ pass "existing empty-offset repair still works"
 for rebuild in enabled disabled; do
   prepare_repair
   printf '# custom comment\nKERNEL_CMDLINE[default]+=" quiet resume= resume_offset="\n# keep this too\n' > "$drop_in"
+  cp "$drop_in" "$fixture/original"
+  DEVICE=''
+  OFFSET=''
+  run_setup
+  cmp -s "$drop_in" "$fixture/original" || fail "unavailable values preserve dual-empty drop-in"
+  [[ ! -e $fixture/rebuilds ]] || fail "unavailable values do not rebuild dual-empty drop-in"
+
+  DEVICE='/dev/nvme0n1p2[/@swap]'
+  OFFSET=12345
   if [[ $rebuild == "enabled" ]]; then
     run_setup
   else
@@ -243,6 +255,13 @@ for rebuild in enabled disabled; do
     [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "dual repair rebuilds exactly once"
   else
     [[ ! -e $fixture/rebuilds ]] || fail "dual repair respects --no-rebuild"
+  fi
+  run_setup
+  [[ $(cat "$drop_in") == "$expected" ]] || fail "completed dual repair stays unchanged"
+  if [[ $rebuild == "enabled" ]]; then
+    [[ $(cat "$fixture/rebuilds") == "rebuild" ]] || fail "completed dual repair does not rebuild again"
+  else
+    [[ ! -e $fixture/rebuilds ]] || fail "completed dual repair does not rebuild"
   fi
   pass "dual repair with rebuild $rebuild preserves comments"
 done
@@ -339,7 +358,7 @@ for parameter in device offset; do
   pass "invalid $parameter values are rejected on creation, repair, append, and retry"
 done
 
-for device in '/dev/nvme0n1p2[/@swap]' '/dev/mapper/swap_crypt-1'; do
+for device in '/dev/nvme0n1p2[/@swap]' '/dev/mapper/swap_crypt-1' '/dev/mapper/crypt@home' '/dev/mapper/crypt@home[/@swap]'; do
   for offset in 0 12345 00123; do
     for write_path in creation repair append; do
       for rebuild in enabled disabled; do
