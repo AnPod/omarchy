@@ -81,6 +81,10 @@ if grep -q 'unresolvable package conflicts detected' "$errors"; then
   exit 0
 fi
 
+# Every failed upgrade lands here, and pacman has already said why one that
+# isn't a file conflict failed.
+grep -q ' exists in filesystem' "$errors" || exit 1
+
 # Paths a package installs that pacman doesn't own. Moving them out of the way
 # is what lets the upgrade through, and works on a leftover directory as well as
 # a file. Any package can hit this — a stub local-db entry from an interrupted

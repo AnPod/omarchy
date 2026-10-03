@@ -295,6 +295,18 @@ fi
   fail "the handler moved a live file when run outside an update"
 pass "the handler refuses a report handed to it outside an update"
 
+# Every failed upgrade reaches the handler; one that isn't a file conflict is
+# not explained as one.
+fresh_work
+echo 0 >"$test_tmp/attempts"
+echo "error: failed to retrieve some files" >"$test_tmp/report"
+if run_update >"$test_tmp/out" 2>"$test_tmp/err"; then
+  fail "a failed download reports success"
+fi
+grep -q "owned by other packages" "$test_tmp/out" "$test_tmp/err" &&
+  fail "a failure that is not a file conflict is blamed on owned files"
+pass "a failure that is not a file conflict is left as pacman reported it"
+
 # The happy path must not pay for any of this.
 fresh_work
 : >"$test_tmp/report"
