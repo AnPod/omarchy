@@ -36,7 +36,10 @@ BarWidget {
   readonly property var verticalLines: displayText.split("\n")
 
   function refresh() {
-    displayDate = new Date()
+    // SystemClock's timer is monotonic and stalls across suspend; re-enabling it
+    // reschedules against the wall clock and emits the current time.
+    clock.enabled = false
+    clock.enabled = true
     if (panelLoader.item && panelLoader.item.refresh) panelLoader.item.refresh()
   }
 
@@ -130,7 +133,7 @@ BarWidget {
     }
   }
 
-  IpcHandler {
+  ShellIpc {
     target: "omarchy.clock"
 
     function refresh(): void { root.broadcast("refresh") }
