@@ -34,12 +34,13 @@ pass "dev-add-migration stamps wall-clock time"
   fail "migration id reused HEAD committer date" "id: $base"
 pass "dev-add-migration does not reuse HEAD committer date"
 
-# Collision with an existing wall-clock id advances to a free slot.
-touch "$tmpdir/migrations/${before}.sh"
+# Occupy the next minute of ids, so only advancing past them finds a free one.
+now=$(date +%s)
+for (( id = now; id <= now + 60; id++ )); do
+  touch "$tmpdir/migrations/$id.sh"
+done
 created2=$(OMARCHY_PATH="$tmpdir" "$helper" --no-edit)
 base2=$(basename "$created2" .sh)
-[[ -f $created2 && $created2 != "$tmpdir/migrations/${before}.sh" ]] ||
-  fail "dev-add-migration did not avoid an existing id" "path: $created2"
-(( base2 > before )) ||
-  fail "dev-add-migration should advance past a colliding id" "id: $base2 before: $before"
+(( base2 == now + 61 )) ||
+  fail "dev-add-migration should advance past colliding ids to the first free one" "id: $base2 expected: $(( now + 61 ))"
 pass "dev-add-migration advances past a colliding migration id"
