@@ -571,7 +571,15 @@ Panel {
         discoveryRetry.attempts = 0
       }
     }
+    // Turning the radio back on is how a user recovers a wedged controller,
+    // so it earns a fresh budget even after the last one ran out.
+    function onEnabledChanged() {
+      if (root.adapter.enabled) discoveryRetry.attempts = 0
+    }
   }
+
+  // A different adapter has refused nothing yet.
+  onAdapterChanged: discoveryRetry.attempts = 0
 
   // A destroyed instance cannot wait for BlueZ confirmations, so it hands any
   // debt to a surviving sibling — whose declarative stop catches even a start
