@@ -100,10 +100,11 @@ set_scale() {
   # Persist to monitors.lua. Prefer an explicit per-output rule for the focused
   # monitor so a wildcard omarchy_monitor_scale is not rewritten when scaling a
   # different display that already has its own hl.monitor({ output = "..." }).
-  if [[ -f $monitor_lua ]] && grep -Eq "^hl\.monitor\(\{ output = \"${active_monitor}\"" "$monitor_lua"; then
-    sed -i -E \
-      -e "/^hl\.monitor\(\{ output = \"${active_monitor}\"/s/(scale = )(\"auto\"|[0-9.]+)/\\1${new_scale}/" \
-      "$monitor_lua"
+  # A rule whose scale is not a plain literal falls through to the wildcard.
+  local output_name=${active_monitor//./\\.}
+  local output_rule="^(hl\.monitor\(\{ output = \"${output_name}\"[^}]*scale = )(\"auto\"|[0-9.]+)([[:space:]]*[,}])"
+  if [[ -f $monitor_lua ]] && grep -Eq "$output_rule" "$monitor_lua"; then
+    sed -i -E "s/${output_rule}/\\1${new_scale}\\3/" "$monitor_lua"
   elif [[ -f $monitor_lua ]] && grep -q '^local omarchy_monitor_scale = ' "$monitor_lua"; then
     sed -i -E \
       -e "s|^local omarchy_monitor_scale = .*|local omarchy_monitor_scale = ${new_scale}|" \
