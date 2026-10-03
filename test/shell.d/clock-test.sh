@@ -214,9 +214,8 @@ assert(/enabled: !root\.viewingCurrentMonth/.test(panelSource) && /onClicked: ro
 assert(!/clampMonth/.test(panelSource), 'calendar steps freely into future months')
 assert(/Qt\.formatDate\(root\.today, "MMMM d"\)/.test(panelSource), 'calendar hero spells out today')
 assert(
-  /font\.pixelSize:\s*Math\.max\(1,\s*Math\.round\(52\s*\*\s*Style\.fontScale\)\)/.test(panelSource) &&
-    /font\.pixelSize:\s*Math\.max\(1,\s*Math\.round\(48\s*\*\s*Style\.fontScale\)\)/.test(panelSource),
-  'calendar hero date and glyph scale with fontScale to fit narrower card widths'
+  /font\.pixelSize: Style\.space\(52\)/.test(panelSource) && /font\.pixelSize: Style\.space\(48\)/.test(panelSource),
+  'calendar hero date and glyph scale with the card through Style.space'
 )
 assert(/id: yearLabel/.test(panelSource) && /root\.yearDone/.test(panelSource), 'calendar panel shows the year progress bar')
 
