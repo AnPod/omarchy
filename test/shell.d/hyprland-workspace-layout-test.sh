@@ -59,7 +59,7 @@ cat >"$stub_dir/hyprctl" <<'EOF'
 #!/bin/bash
 
 if [[ $1 == "activeworkspace" ]]; then
-  printf '{"id":-1337,"name":"code:main.nvim","tiledLayout":"scrolling"}\n'
+  printf '%s\n' '{"id":-1337,"name":"code:\"main\"\\.nvim","tiledLayout":"scrolling"}'
 else
   printf '%s\n' "$*" >>"$HYPRCTL_LOG"
 fi
@@ -72,13 +72,14 @@ HOME="$named_home" HYPRCTL_LOG="$named_log" PATH="$stub_dir:$PATH" \
 
 named_file="$named_home/.local/state/omarchy/workspace-layouts/name-code-main-nvim.lua"
 [[ -f $named_file ]] || fail "named workspace layout toggle saves a name-keyed rule"
-grep -Fx 'hl.workspace_rule({ workspace = "name:code:main.nvim", layout = "dwindle" })' "$named_file" >/dev/null ||
+grep -Fx 'hl.workspace_rule({ workspace = "name:code:\"main\"\\.nvim", layout = "dwindle" })' "$named_file" >/dev/null ||
   fail "named workspace layout toggle saves name: workspace rule"
-grep -Fx 'eval hl.workspace_rule({ workspace = "name:code:main.nvim", layout = "dwindle" })' "$named_log" >/dev/null ||
+grep -Fx 'eval hl.workspace_rule({ workspace = "name:code:\"main\"\\.nvim", layout = "dwindle" })' "$named_log" >/dev/null ||
   fail "named workspace layout toggle applies name: rule immediately"
 pass "named workspace layout toggle keys rules by workspace name"
 
-# Lua's require reads a dot in the file name as a directory separator.
+# Lua's require reads a dot in the file name as a directory separator, and the
+# name's quote and backslash must survive the Lua string they are written into.
 HOME="$named_home" OMARCHY_PATH="$ROOT" lua - <<'LUA' || fail "saved named workspace layouts load into Hyprland configuration"
 local rules = {}
 
@@ -92,12 +93,12 @@ dofile(os.getenv("OMARCHY_PATH") .. "/default/hypr/bootstrap.lua")
 require("default.hypr.workspace-layouts")
 
 assert(#rules == 1)
-assert(rules[1].workspace == "name:code:main.nvim")
+assert(rules[1].workspace == 'name:code:"main"\\.nvim')
 assert(rules[1].layout == "dwindle")
 LUA
 pass "saved named workspace layouts load into Hyprland configuration"
 
-HOME="$home_dir" OMARCHY_PATH="$ROOT" lua <<'LUA'
+HOME="$home_dir" OMARCHY_PATH="$ROOT" lua - <<'LUA' || fail "saved workspace layouts load into Hyprland configuration"
 local rules = {}
 
 hl = {
