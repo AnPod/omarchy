@@ -94,7 +94,10 @@ case "$*" in
       [[ ! -f $OMARCHY_TEST_PING_COUNTER ]] || read -r pings <"$OMARCHY_TEST_PING_COUNTER"
       (( pings += 1 ))
       printf '%s\n' "$pings" >"$OMARCHY_TEST_PING_COUNTER"
-      if (( pings <= ${OMARCHY_TEST_FAILED_PINGS:-0} )); then
+      if [[ ${OMARCHY_TEST_PING_HANG:-0} == "1" ]]; then
+        sleep 5
+      fi
+      if [[ ${OMARCHY_TEST_PING_NEVER:-0} == "1" ]] || (( pings <= ${OMARCHY_TEST_FAILED_PINGS:-0} )); then
         printf 'Not ready to accept queries yet.\n'
         exit 0
       fi
@@ -336,7 +339,7 @@ pass "restart recovers the lock even when the notification service never returns
 
 # Readiness probes must cover cold starts while returning immediately once
 # the shell answers. Each case starts with no old shell or lock state.
-for readiness_case in immediate cold never; do
+for readiness_case in immediate cold never timeout; do
   rm -f "$restart_state.locked" "$test_tmp/ping-counter" "$test_tmp/notification-checks"
   : >"$restart_state"
   : >"$restart_log"
@@ -344,10 +347,13 @@ for readiness_case in immediate cold never; do
   : >"$dispatch_log"
   : >"$ipc_log"
 
+  ping_never=0
+  ping_hang=0
   case $readiness_case in
     immediate) failed_pings=0 ;;
     cold) failed_pings=60 ;;
-    never) failed_pings=100 ;;
+    never) failed_pings=0; ping_never=1 ;;
+    timeout) failed_pings=0; ping_hang=1 ;;
   esac
 
   started=$SECONDS
@@ -364,6 +370,8 @@ for readiness_case in immediate cold never; do
   OMARCHY_TEST_SESSION_PATH="$restart_root" \
   OMARCHY_TEST_PING_COUNTER="$test_tmp/ping-counter" \
   OMARCHY_TEST_FAILED_PINGS="$failed_pings" \
+  OMARCHY_TEST_PING_NEVER="$ping_never" \
+  OMARCHY_TEST_PING_HANG="$ping_hang" \
     timeout 20 "$ROOT/bin/omarchy-restart-shell" >"$test_tmp/readiness.out" 2>&1 || restart_status=$?
   elapsed=$((SECONDS - started))
   pings=$(<"$test_tmp/ping-counter")
@@ -377,14 +385,14 @@ for readiness_case in immediate cold never; do
     cold)
       (( restart_status == 0 )) || fail "restart succeeds after a cold start" "$(cat "$test_tmp/readiness.out")"
       (( pings == 61 )) || fail "cold start succeeds after 60 failed pings" "$pings"
-      (( elapsed >= 6 && elapsed < 20 )) || fail "cold start waits roughly six seconds within the outer timeout" "$elapsed seconds"
+      (( elapsed >= 6 && elapsed <= 12 )) || fail "cold start waits roughly six seconds within twelve seconds" "$elapsed seconds"
       pass "restart waits for a cold start beyond the old two-second window"
       ;;
-    never)
-      (( restart_status == 1 )) || fail "restart exits 1 when the shell never becomes ready" "exit $restart_status"
-      (( pings == 100 )) || fail "restart exhausts 100 readiness probes" "$pings"
+    never|timeout)
+      (( restart_status == 1 )) || fail "restart exits 1 when readiness fails ($readiness_case)" "exit $restart_status"
+      (( elapsed >= 9 && elapsed <= 12 )) || fail "restart bounds failed readiness to roughly ten seconds ($readiness_case)" "$elapsed seconds"
       [[ $(<"$test_tmp/readiness.out") == "Omarchy shell did not become ready after restart." ]] || fail "restart reports the existing readiness error" "$(cat "$test_tmp/readiness.out")"
-      pass "restart reports failure after exhausting readiness retries"
+      pass "restart reports failure within the readiness deadline ($readiness_case)"
       ;;
   esac
 done
