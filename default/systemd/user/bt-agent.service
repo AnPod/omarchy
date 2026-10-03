@@ -3,7 +3,7 @@ Description=Bluetooth pairing agent (auto-accept)
 Documentation=man:bt-agent(1)
 ConditionPathIsDirectory=/sys/class/bluetooth
 # bluez must be reachable on the system bus before we can register.
-After=dbus.socket bluetooth.service
+After=dbus.socket
 Requires=dbus.socket
 
 [Service]
