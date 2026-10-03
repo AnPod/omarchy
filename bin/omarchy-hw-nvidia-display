@@ -26,6 +26,8 @@ nvidia_connected=0
 other_connected=0
 
 for connector in "$drm_path"/card*-*; do
+  # Writeback connectors capture to memory and report connected without a monitor.
+  [[ $connector == *-Writeback-* ]] && continue
   [[ -f $connector/status ]] || continue
   [[ $(< "$connector/status") == "connected" ]] || continue
   card=${connector##*/}
