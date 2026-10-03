@@ -13,10 +13,11 @@ if [[ ! -f $dropin ]]; then
 # (#13502). Keep multiplexing off so the AT Translated Set 2 device answers.
 KERNEL_CMDLINE[default]+=" i8042.nomux"
 DROPIN
+  sudo rm -f "$rebuild_marker"
 fi
 
 # The marker spares another user's migration a second rebuild, while a missing
-# marker still retries one that failed.
+# marker still retries one that failed or picks up a drop-in written since.
 if omarchy-cmd-present limine-mkinitcpio && [[ ! -e $rebuild_marker ]]; then
   sudo limine-mkinitcpio
   sudo install -Dm644 /dev/null "$rebuild_marker"

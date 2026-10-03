@@ -91,6 +91,14 @@ run_migration "$fixture" 0 0
 (( $(wc -l <"$fixture/rebuild.log") == 3 )) || fail "another user's migration skips the rebuild"
 pass "another user's migration does not rebuild again"
 
+rm "$dropin"
+run_migration "$fixture" 0 0
+(( migration_status == 0 )) || fail "recreating the drop-in completes migration"
+[[ -f $dropin ]] || fail "removed drop-in is recreated"
+(( $(wc -l <"$fixture/rebuild.log") == 4 )) || fail "recreated drop-in rebuilds the boot image"
+[[ -e $fixture/rebuilt ]] || fail "rebuild after recreating the drop-in records the marker"
+pass "recreated drop-in reaches the boot image"
+
 fixture="$tmpdir/nonmatching"
 run_migration "$fixture" 1 0
 (( migration_status == 0 )) || fail "nonmatching hardware skips migration"
