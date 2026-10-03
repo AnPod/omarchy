@@ -5,6 +5,7 @@ if ! omarchy-hw-fujitsu-lifebook-p727; then
 fi
 
 dropin=/etc/limine-entry-tool.d/lifebook-p727-i8042.conf
+rebuild_marker="${OMARCHY_LIFEBOOK_P727_REBUILD_MARKER:-/var/lib/omarchy/migrations/1790599903}"
 if [[ ! -f $dropin ]]; then
   sudo mkdir -p /etc/limine-entry-tool.d
   sudo tee "$dropin" >/dev/null <<'DROPIN'
@@ -14,6 +15,9 @@ KERNEL_CMDLINE[default]+=" i8042.nomux"
 DROPIN
 fi
 
-if omarchy-cmd-present limine-mkinitcpio; then
+# The marker spares another user's migration a second rebuild, while a missing
+# marker still retries one that failed.
+if omarchy-cmd-present limine-mkinitcpio && [[ ! -e $rebuild_marker ]]; then
   sudo limine-mkinitcpio
+  sudo install -Dm644 /dev/null "$rebuild_marker"
 fi

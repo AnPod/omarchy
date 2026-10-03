@@ -52,6 +52,7 @@ run_migration() {
   sed "s|/etc/limine-entry-tool.d|$fixture/dropins|g" "$migration" >"$fixture/migration.sh"
   if PATH="$tmpdir/bin:$PATH" HOME="$fixture/home" OMARCHY_PATH="$ROOT" \
     FIXTURE="$fixture" HARDWARE_STATUS="$hardware_status" REBUILD_STATUS="$rebuild_status" \
+    OMARCHY_LIFEBOOK_P727_REBUILD_MARKER="$fixture/rebuilt" \
     bash -euo pipefail "$fixture/migration.sh" >"$fixture/output.log" 2>&1; then
     migration_status=0
   else
@@ -66,6 +67,7 @@ run_migration "$fixture" 0 1
 [[ -f $dropin ]] || fail "failed rebuild leaves the drop-in"
 rg -Fq 'KERNEL_CMDLINE[default]+=" i8042.nomux"' "$dropin" || fail "migration writes keyboard fix"
 (( $(wc -l <"$fixture/rebuild.log") == 1 )) || fail "first attempt rebuilds"
+[[ ! -e $fixture/rebuilt ]] || fail "failed rebuild leaves no marker"
 pass "failed rebuild leaves the drop-in and exits nonzero"
 
 # Preserve administrator changes while retrying the rebuild.
@@ -81,7 +83,13 @@ run_migration "$fixture" 0 0
 (( migration_status == 0 )) || fail "successful rebuild completes migration"
 (( $(wc -l <"$fixture/rebuild.log") == 3 )) || fail "successful attempt retries rebuild"
 cmp -s "$dropin" "$fixture/expected.conf" || fail "successful retry preserves existing drop-in content"
+[[ -e $fixture/rebuilt ]] || fail "successful rebuild records the marker"
 pass "successful rebuild completes migration and preserves the drop-in"
+
+run_migration "$fixture" 0 0
+(( migration_status == 0 )) || fail "another user's migration completes"
+(( $(wc -l <"$fixture/rebuild.log") == 3 )) || fail "another user's migration skips the rebuild"
+pass "another user's migration does not rebuild again"
 
 fixture="$tmpdir/nonmatching"
 run_migration "$fixture" 1 0
