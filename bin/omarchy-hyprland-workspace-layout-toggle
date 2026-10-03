@@ -21,8 +21,8 @@ if [[ $ws_name =~ ^[0-9]+$ ]]; then
   LAYOUT_KEY=$ws_name
 else
   ACTIVE_WORKSPACE="name:$ws_name"
-  # Filesystem-safe key for the persisted rule file.
-  LAYOUT_KEY="name-$(printf '%s' "$ws_name" | sed -E 's/[^A-Za-z0-9._-]+/-/g; s/^-+//; s/-+$//')"
+  # A module name for the persisted rule file: require reads a dot as a path separator.
+  LAYOUT_KEY="name-$(printf '%s' "$ws_name" | sed -E 's/[^A-Za-z0-9_-]+/-/g; s/^-+//; s/-+$//')"
   [[ -n $LAYOUT_KEY && $LAYOUT_KEY != "name-" ]] || LAYOUT_KEY="name-$ws_id"
 fi
 
