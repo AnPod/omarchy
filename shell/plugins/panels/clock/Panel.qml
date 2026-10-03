@@ -296,6 +296,7 @@ Panel {
               spacing: Style.space(22)
 
               Text {
+                id: heroGlyph
                 // Baseline-aligned, not center-aligned: "July 26" carries a
                 // descender, so centering the two boxes leaves the icon
                 // sitting visibly low against the digits.
@@ -321,9 +322,10 @@ Panel {
                 font.family: root.contentFontFamily
                 font.pixelSize: Math.round(52 * Style.fontScale)
                 font.bold: true
-                // Keep long month names inside the scaled card width.
+                // Keep long month names inside the card, without widening a short
+                // one past its text and pulling the hero off center.
                 fontSizeMode: Text.HorizontalFit
-                width: Math.max(1, panel.fittedContentWidth(Style.space(560)) - Style.space(22) - Math.round(48 * Style.fontScale) - Style.space(24))
+                width: Math.min(implicitWidth, Math.max(1, heroRow.parent.width - heroGlyph.width - heroRow.spacing))
                 elide: Text.ElideNone
               }
             }
