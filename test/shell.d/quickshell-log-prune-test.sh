@@ -33,12 +33,13 @@ ln -s "$runtime/quickshell/by-id/stale-instance" "$runtime/quickshell/by-pid/999
 mkdir -p "$runtime/quickshell/by-id/orphan-instance"
 echo orphan >"$runtime/quickshell/by-id/orphan-instance/log.log"
 
-XDG_RUNTIME_DIR="$runtime" "$prune"
+# A trailing slash must not make the live instance's path look unreferenced.
+XDG_RUNTIME_DIR="$runtime/" "$prune"
 
 [[ -d $runtime/quickshell/by-id/live-instance ]] || fail "prune keeps the live instance"
 [[ ! -d $runtime/quickshell/by-id/stale-instance ]] || fail "prune removes stale instance dirs"
 [[ ! -d $runtime/quickshell/by-id/orphan-instance ]] || fail "prune removes orphan instance dirs"
-[[ ! -e $runtime/quickshell/by-pid/999999 ]] || fail "prune drops dead by-pid symlinks"
+[[ ! -L $runtime/quickshell/by-pid/999999 ]] || fail "prune drops dead by-pid symlinks"
 pass "prune keeps live dirs and removes stale quickshell instance logs"
 
 kill "$live_pid" 2>/dev/null || true

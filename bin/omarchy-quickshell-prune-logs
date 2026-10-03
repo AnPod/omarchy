@@ -10,7 +10,8 @@
 
 set -euo pipefail
 
-runtime=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+# Canonical, so by-id paths compare equal to the readlink -f'd by-pid targets.
+runtime=$(readlink -f -- "${XDG_RUNTIME_DIR:-/run/user/$(id -u)}")
 by_id=$runtime/quickshell/by-id
 by_pid=$runtime/quickshell/by-pid
 
