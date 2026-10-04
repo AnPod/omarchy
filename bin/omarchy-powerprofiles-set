@@ -55,6 +55,10 @@ if [[ -z ${profile:-} ]] || ! profile_available "$profile"; then
   fi
 fi
 
+if [[ $profile == "power-saver" ]] && profile_available balanced && [[ $(powerprofilesctl get 2>/dev/null) == "performance" ]]; then
+  powerprofilesctl set balanced || true
+fi
+
 powerprofilesctl set "$profile" || exit
 
 if [[ -n $requested_profile ]]; then
