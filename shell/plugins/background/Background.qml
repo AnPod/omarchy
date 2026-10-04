@@ -274,7 +274,7 @@ Item {
 
   Timer {
     id: pendingThemeFallbackTimer
-    interval: 300
+    interval: 500
     repeat: false
     onTriggered: root.applyPendingTheme()
   }
