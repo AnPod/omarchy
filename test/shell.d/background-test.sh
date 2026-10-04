@@ -74,4 +74,8 @@ assert(
     /function prepareBackground[\s\S]*?requestNativeSize\(path\)/.test(backgroundQml),
   'background never probes videos and probes a prepared frame ahead of its transition'
 )
+assert(
+  /BackgroundMedia\s*\{[\s\S]*id: base[\s\S]*version: root\.backgroundVersion/.test(backgroundQml),
+  'displayed wallpaper binds backgroundVersion to bust cache across same-name theme switches'
+)
 JS

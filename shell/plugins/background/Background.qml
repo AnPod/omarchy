@@ -67,6 +67,7 @@ Item {
     if (path !== preparedBackground) preparedBackground = ""
     preparedBackgroundTimer.stop()
     lastTransitionPath = path
+    if (force && finalPath) delete nativeSizes[finalPath]
     // The incoming frame gates the reveal, so its size is read first.
     requestNativeSize(path)
     requestNativeSize(fromPath || displayedBackground)
@@ -337,6 +338,8 @@ Item {
         id: base
         anchors.fill: parent
         path: root.displayedBackground
+        version: root.backgroundVersion
+        cached: true
         constrainDecode: true
         decodeSize: panel.decodeSize(root.displayedBackground)
         onReadyChanged: {
