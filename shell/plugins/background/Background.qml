@@ -67,7 +67,10 @@ Item {
     if (path !== preparedBackground) preparedBackground = ""
     preparedBackgroundTimer.stop()
     lastTransitionPath = path
-    if (force && finalPath) delete nativeSizes[finalPath]
+    if (force && finalPath) {
+      delete nativeSizes[finalPath]
+      sizeQueue = sizeQueue.filter(function(queued) { return queued !== finalPath })
+    }
     // The incoming frame gates the reveal, so its size is read first.
     requestNativeSize(path)
     requestNativeSize(fromPath || displayedBackground)
@@ -267,6 +270,15 @@ Item {
         root.finishingTransition = true
       }
       root.revealProgress = 1
+      Qt.callLater(function() {
+        if (root.finishingTransition) {
+          root.incomingBackground = ""
+          root.oldBackground = ""
+          root.preparedBackground = ""
+          root.finishingTransition = false
+          root.pruneNativeSizes()
+        }
+      })
     }
   }
 

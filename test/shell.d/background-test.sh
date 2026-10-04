@@ -78,4 +78,8 @@ assert(
   /BackgroundMedia\s*\{[\s\S]*id: base[\s\S]*version: root\.backgroundVersion/.test(backgroundQml),
   'displayed wallpaper binds backgroundVersion to bust cache across same-name theme switches'
 )
+assert(
+  /delete nativeSizes\[finalPath\][\s\S]*sizeQueue = sizeQueue\.filter/.test(backgroundQml),
+  'forced transition deletes cached native size and clears in-flight queued probe'
+)
 JS
