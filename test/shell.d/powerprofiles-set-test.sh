@@ -81,6 +81,12 @@ pass "power profile init restores the autodetected preference"
 [[ $(tail -n 1 "$tmp_dir/calls") == "power-saver" ]] || fail "switching from performance lands on power-saver"
 pass "switching from performance to power-saver transitions through balanced"
 
+"$ROOT/bin/omarchy-powerprofiles-set" ac performance
+if POWERPROFILES_SET_FAIL=1 "$ROOT/bin/omarchy-powerprofiles-set" ac power-saver; then
+  fail "transition aborts if intermediate balanced set fails"
+fi
+pass "transition aborts if intermediate balanced set fails"
+
 rg -F '["omarchy-powerprofiles-set", pendingPowerSource]' "$ROOT/shell/plugins/services/battery/Service.qml" >/dev/null ||
   fail "battery service applies profiles through Omarchy command"
 pass "battery service applies profiles through Omarchy command"
