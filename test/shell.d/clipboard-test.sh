@@ -68,6 +68,40 @@ assertDeepEqual(clipboard.removeEntryAt(history, 10), history, 'clipboard remove
 assertDeepEqual(clipboard.clearHistory(), [], 'clipboard clearHistory returns an empty history')
 
 assertDeepEqual(
+  clipboard.imagePaths(history),
+  ['/tmp/a.png'],
+  'clipboard imagePaths extracts all image paths'
+)
+
+assertDeepEqual(
+  clipboard.prunedImagePaths(history, clipboard.removeEntryAt(history, 2)),
+  ['/tmp/a.png'],
+  'clipboard prunedImagePaths returns removed image paths'
+)
+
+assertDeepEqual(
+  clipboard.prunedImagePaths(history, clipboard.removeEntryAt(history, 0)),
+  [],
+  'clipboard prunedImagePaths returns empty list when text entry removed'
+)
+
+assertDeepEqual(
+  clipboard.prunedImagePaths(history, clipboard.clearHistory()),
+  ['/tmp/a.png'],
+  'clipboard prunedImagePaths returns all image paths when history is cleared'
+)
+
+const historyAtLimit = [
+  { type: 'image', path: '/tmp/new.png', mime: 'image/png' },
+  { type: 'image', path: '/tmp/old.png', mime: 'image/png' }
+]
+assertDeepEqual(
+  clipboard.prunedImagePaths(historyAtLimit, clipboard.addEntry(historyAtLimit, { type: 'text', text: 'new text' }, 2)),
+  ['/tmp/old.png'],
+  'clipboard prunedImagePaths returns image paths evicted by history limit'
+)
+
+assertDeepEqual(
   clipboard.displayRows(history, 'image', 50).map(row => ({ type: row.entryType, preview: row.previewText, mime: row.mime })),
   [{ type: 'image', preview: 'Image', mime: 'image/png' }],
   'clipboard display rows search image metadata'
@@ -204,6 +238,27 @@ const hugeFileRow = clipboard.displayRows([{ type: 'text', text: hugeFileList.jo
 assert(
   hugeFileRow.entryType === 'file' && hugeFileRow.fullText.split('\n').every(path => path.endsWith('.mp4')),
   'clipboard display rows cap a huge file list without truncating a path'
+)
+
+assert(
+  /function deleteImageFiles\(paths\)[\s\S]*root\.imagesDir[\s\S]*Quickshell\.execDetached\(\["rm", "-f", "--"\]/.test(clipboardQml),
+  'clipboard deletes image files safely inside imagesDir via execDetached'
+)
+assert(
+  /function removeDisplayIndex\(index\)[\s\S]*root\.deleteImageFiles\(ClipboardHistory\.prunedImagePaths/.test(clipboardQml),
+  'clipboard deletes image file when entry is removed'
+)
+assert(
+  /function confirmClearHistory\(\)[\s\S]*root\.deleteImageFiles\(ClipboardHistory\.prunedImagePaths/.test(clipboardQml),
+  'clipboard deletes image files when history is cleared'
+)
+assert(
+  /function addClipboardEntry\(entry\)[\s\S]*root\.deleteImageFiles\(pruned\)/.test(clipboardQml),
+  'clipboard deletes evicted image files when history limit is reached'
+)
+assert(
+  /function sweepOrphanImages\(\)[\s\S]*grep -Fq.*\$img.*\$hist.*rm -f/.test(clipboardQml),
+  'clipboard sweeps orphan images older than 1 minute not present in history'
 )
 JS
 
