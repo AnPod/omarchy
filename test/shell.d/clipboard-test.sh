@@ -573,3 +573,29 @@ OMASNAP_OUT="$TMPDIR/omasnap" HOME="$TMPDIR/home" PATH="$TMPDIR/bin:$PATH" \
 
 [[ $(<"$TMPDIR/omasnap") == "$TMPDIR/image.png" ]] || fail "clipboard open helper opens image entries in Omasnap"
 pass "clipboard open helper opens image entries in Omasnap"
+
+# Test orphan image sweep behavior
+SWEEP_DIR="$TMPDIR/sweep-images"
+mkdir -p "$SWEEP_DIR"
+touch -d '2 minutes ago' "$SWEEP_DIR/orphan.png" "$SWEEP_DIR/kept.png" "$SWEEP_DIR/recent.png"
+touch "$SWEEP_DIR/recent.png" # recent should not be deleted (mmin <= 1)
+SWEEP_HIST="$TMPDIR/sweep-hist.json"
+printf '[{"type":"image","path":"%s"}]\n' "$SWEEP_DIR/kept.png" >"$SWEEP_HIST"
+
+bash -c '
+  dir="$1"; hist="$2"
+  [[ -d "$dir" ]] || exit 0
+  find "$dir" -type f -mmin +1 2>/dev/null | while IFS= read -r img; do
+    if [[ -f "$hist" ]]; then
+      grep -Fq "$img" "$hist" || rm -f -- "$img"
+    else
+      rm -f -- "$img"
+    fi
+  done
+' bash "$SWEEP_DIR" "$SWEEP_HIST"
+
+[[ -f "$SWEEP_DIR/kept.png" ]] || fail "sweep keeps images referenced in history"
+[[ -f "$SWEEP_DIR/recent.png" ]] || fail "sweep keeps newly created images within 1 minute"
+[[ ! -f "$SWEEP_DIR/orphan.png" ]] || fail "sweep removes orphan images older than 1 minute"
+pass "clipboard orphan sweep cleans unreferenced older images"
+

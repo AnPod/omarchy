@@ -17,7 +17,7 @@ Item {
   property bool clearConfirmOpen: false
   property var history: []
 
-  property string stateDir: Quickshell.env("HOME") + "/.local/state/omarchy"
+  property string stateDir: Quickshell.env("XDG_STATE_HOME") ? (Quickshell.env("XDG_STATE_HOME") + "/omarchy") : (Quickshell.env("HOME") + "/.local/state/omarchy")
   property string historyPath: root.stateDir + "/clipboard-history.json"
   property string imagesDir: root.stateDir + "/clipboard-images"
   property string captureScript: root.omarchyPath + "/shell/plugins/clipboard/capture.sh"
@@ -95,9 +95,13 @@ Item {
   function sweepOrphanImages() {
     Quickshell.execDetached(["bash", "-c",
       "dir=\"$1\"; hist=\"$2\"\n" +
-      "[[ -d \"$dir\" && -f \"$hist\" ]] || exit 0\n" +
+      "[[ -d \"$dir\" ]] || exit 0\n" +
       "find \"$dir\" -type f -mmin +1 2>/dev/null | while IFS= read -r img; do\n" +
-      "  grep -Fq \"$img\" \"$hist\" || rm -f -- \"$img\"\n" +
+      "  if [[ -f \"$hist\" ]]; then\n" +
+      "    grep -Fq \"$img\" \"$hist\" || rm -f -- \"$img\"\n" +
+      "  else\n" +
+      "    rm -f -- \"$img\"\n" +
+      "  fi\n" +
       "done",
       "bash", root.imagesDir, root.historyPath])
   }
