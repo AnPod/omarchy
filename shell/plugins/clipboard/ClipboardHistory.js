@@ -28,7 +28,12 @@ function normalizeEntry(value) {
 
 function entryKey(entry) {
   if (!entry) return ""
-  if (entry.type === "image") return "image:" + String(entry.path || "")
+  if (entry.type === "image") {
+    var path = String(entry.path || "")
+    // Legacy captures used hash.ext; fresh captures use hash.unique.ext.
+    var hash = fileName(path).match(/^([a-f0-9]{64})(?:\.[A-Za-z0-9]{6})?\.(png|jpe?g|webp|gif|bmp|tiff?)$/)
+    return "image:" + (hash ? hash[1] : path)
+  }
   return "text:" + String(entry.text || "")
 }
 

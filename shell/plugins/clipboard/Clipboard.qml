@@ -89,10 +89,12 @@ Item {
       }
     }
     if (validPaths.length === 0) return
+    // Capture paths are never reused, so delayed deletion cannot remove a recapture.
     Quickshell.execDetached(["rm", "-f", "--"].concat(validPaths))
   }
 
   function sweepOrphanImages() {
+    // Fresh capture paths also protect against a sweep that already selected an orphan.
     Quickshell.execDetached(["bash", "-c",
       "dir=\"$1\"; hist=\"$2\"\n" +
       "[[ -d \"$dir\" ]] || exit 0\n" +
