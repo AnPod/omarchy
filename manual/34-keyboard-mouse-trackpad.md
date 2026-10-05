@@ -64,8 +64,8 @@ Omarchy runs the [fcitx5](https://fcitx-im.org/) input method framework as part 
 Selecting Japanese during installation configures the JIS keymap. To type Japanese with kana-kanji conversion, you also need an input engine. Set up Mozc after installation:
 
 1. Run `omarchy pkg add fcitx5-mozc fcitx5-configtool`.
-2. Launch `fcitx5-configtool` and add **Mozc** to your input methods.
-3. Configure the key that switches input methods as **Ctrl+Space** or **Zenkaku_Hankaku**.
+2. Run `fcitx5-configtool` in a terminal and add **Mozc** to your input methods.
+3. Configure the key that switches input methods as **Zenkaku_Hankaku** on a JIS keyboard. You can also use **Ctrl+Space**, but it conflicts with Omarchy's default tmux and Herdr prefix key.
 4. Log out and log back in, then switch to Mozc to type Japanese.
 
 ### Use ALT as SUPER
