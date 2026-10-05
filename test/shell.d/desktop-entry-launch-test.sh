@@ -34,6 +34,11 @@ cat >"$mock_bin/setsid" <<'SH'
 printf 'launch:%s\n' "$*" >>"$OMARCHY_TEST_LOG"
 SH
 
+cat >"$mock_bin/pacman" <<'SH'
+#!/bin/bash
+exit 0
+SH
+
 cat >"$mock_bin/omarchy-launch-floating-terminal-with-presentation" <<'SH'
 #!/bin/bash
 printf '%s\n' "$1" >"$OMARCHY_TEST_PRESENTATION"
