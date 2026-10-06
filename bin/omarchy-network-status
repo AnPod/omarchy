@@ -2,22 +2,26 @@
 
 # omarchy:summary=Print active network status for the shell
 # omarchy:group=network
-# omarchy:args=[--verbose]
+# omarchy:args=[--verbose] [--no-ping]
 
 verbose=false
+no_ping=false
 internet_probe=1.1.1.1
 
-case "${1:-}" in
-  "")
-    ;;
-  --verbose)
-    verbose=true
-    ;;
-  *)
-    echo "Usage: omarchy-network-status [--verbose]" >&2
-    exit 2
-    ;;
-esac
+for arg in "$@"; do
+  case "$arg" in
+    --verbose)
+      verbose=true
+      ;;
+    --no-ping)
+      no_ping=true
+      ;;
+    *)
+      echo "Usage: omarchy-network-status [--verbose] [--no-ping]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 # Prefer the main-table default route for the uplink description. Policy routes
 # (Clash/Meta TUN, custom tables) can win `ip route get` while the physical
@@ -56,7 +60,7 @@ iface_type() {
       return
       ;;
   esac
-  if [[ $sys_type == "65534" || $sys_type == "778" ]]; then
+  if [[ -e /sys/class/net/$iface/tun_flags || $sys_type == "65534" || $sys_type == "778" ]]; then
     # 778 = ARPHRD_WIREGUARD
     printf 'vpn\n'
     return
@@ -137,7 +141,7 @@ print_ping_samples() {
 
 print_verbose() {
   local iface gw src prefix link type
-  local routed_json routed_gw
+  local routed_json routed_gw default_json address_json
 
   # Physical/main uplink for the panel description.
   iface=$(uplink_device)
@@ -145,10 +149,20 @@ print_verbose() {
 
   type=$(iface_type "$iface")
 
-  # Address/gateway from the iface itself when possible.
-  src=$(ip -j addr show "$iface" 2>/dev/null | jq -r '.[0].addr_info[]? | select(.family == "inet") | .local // empty' 2>/dev/null | head -n 1)
-  prefix=$(ip -j addr show "$iface" 2>/dev/null | jq -r '.[0].addr_info[]? | select(.family == "inet") | .prefixlen // ""' 2>/dev/null | head -n 1)
-  gw=$(ip -j route show table main default 2>/dev/null | jq -r --arg d "$iface" 'map(select(.dev == $d)) | sort_by(.metric // 0) | .[0].gateway // empty' 2>/dev/null)
+  # Prefer the selected main route's source, then a matching route-get source.
+  default_json=$(ip -j route show table main default 2>/dev/null |
+    jq -c --arg d "$iface" 'map(select(.dev == $d)) | sort_by(.metric // 0) | .[0] // {}' 2>/dev/null)
+  routed_json=$(ip -j route get "$internet_probe" 2>/dev/null)
+  address_json=$(ip -j addr show "$iface" 2>/dev/null)
+  src=$(jq -r '.prefsrc // empty' <<<"$default_json" 2>/dev/null)
+  if [[ -z $src ]]; then
+    src=$(jq -r --arg d "$iface" '.[0] | select(.dev == $d) | .prefsrc // empty' <<<"$routed_json" 2>/dev/null)
+  fi
+  if [[ -z $src ]]; then
+    src=$(jq -r '[.[0].addr_info[]? | select(.family == "inet")][0].local // empty' <<<"$address_json" 2>/dev/null)
+  fi
+  prefix=$(jq -r --arg src "$src" '[.[0].addr_info[]? | select(.family == "inet" and .local == $src)][0].prefixlen // ""' <<<"$address_json" 2>/dev/null)
+  gw=$(jq -r '.gateway // empty' <<<"$default_json" 2>/dev/null)
 
   printf 'iface\t%s\n' "$iface"
   printf 'ip\t%s\n' "$src"
@@ -181,10 +195,11 @@ print_verbose() {
   fi
 
   # Internet ping still follows the actually routed path (may be TUN).
-  routed_json=$(ip -j route get "$internet_probe" 2>/dev/null)
   routed_gw=$(jq -r '.[0].gateway // ""' <<<"$routed_json" 2>/dev/null)
   [[ -n $routed_gw ]] || routed_gw=$gw
-  print_ping_samples "$routed_gw"
+  if [[ $no_ping == "false" ]]; then
+    print_ping_samples "$routed_gw"
+  fi
 }
 
 if [[ $verbose == "true" ]]; then
