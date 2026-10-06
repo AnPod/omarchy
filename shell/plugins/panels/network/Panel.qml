@@ -84,6 +84,7 @@ Panel {
   function pollDetails() {
     if (detailsProc.running) return
     detailsRequest = detailsGeneration
+    detailsProc.command = opened ? ["omarchy-network-status", "--verbose"] : ["omarchy-network-status", "--verbose", "--no-ping"]
     detailsProc.running = true
   }
 
@@ -1038,13 +1039,13 @@ Panel {
     }
   }
 
-  // Poll details while the panel is open so the IP/route header catches up
-  // as soon as NetworkManager finishes activating a connection.
+  // Poll slowly without pings while closed to catch route changes between connected devices,
+  // and faster while open to keep the IP/route header current.
   Timer {
     id: detailsPoll
-    interval: 1500
+    interval: root.opened ? 1500 : 30000
     repeat: true
-    running: root.opened
+    running: true
     onTriggered: root.pollDetails()
   }
 
