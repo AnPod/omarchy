@@ -9,6 +9,9 @@ else
   omarchy-pkg-add omazed || exit 1
   set -o pipefail
   curl -fsSL https://zed.dev/install.sh | sh || exit 1
+  if omarchy-cmd-missing zeditor; then
+    ln -s zed "$HOME/.local/bin/zeditor" || exit 1
+  fi
 fi
 
 # Apply Omarchy theme to Zed
