@@ -200,3 +200,17 @@ jq -nc --arg later "$later" '{
 autoswitch >/dev/null
 [[ $(active) == "work" ]] || fail "a stale account with room wins over a fresh one near the limit" "$(active)"
 pass "a stale account with room wins over a fresh one near the limit"
+
+registry main auto
+record 0.97 "$soon" 0.12 "$later"
+jq '.accounts[0].stale = true' "$usage/claude.json" >"$test_tmp/record.json"
+mv "$test_tmp/record.json" "$usage/claude.json"
+[[ -z $(autoswitch) && $(active) == "main" && ! -s $notifications ]] || fail "stale active limits cannot trigger switching"
+pass "stale active limits cannot trigger switching"
+
+registry main auto
+record 0.97 "$soon" 0.98 "$later"
+jq '.accounts[0].stale = true' "$usage/claude.json" >"$test_tmp/record.json"
+mv "$test_tmp/record.json" "$usage/claude.json"
+[[ -z $(autoswitch) && $(active) == "main" && ! -s $notifications ]] || fail "stale active limits cannot trigger exhaustion"
+pass "stale active limits cannot trigger exhaustion"

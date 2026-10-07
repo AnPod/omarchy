@@ -17,7 +17,7 @@ signed_in_home() {
   local home
   home=$(mktemp -d "$SCRATCH/home.XXXXXX")
   mkdir -p "$home/bin" "$home/.codex"
-  touch "$home/.codex/auth.json"
+  printf '%s\n' '{"tokens":{"account_id":"test-account"}}' >"$home/.codex/auth.json"
   printf '%s\n' "$home"
 }
 
@@ -1021,7 +1021,7 @@ done
 EOF
 chmod +x "$STALL_HOME/bin/codex"
 mkdir -p "$STALL_HOME/.local/state/omarchy/agents/usage"
-printf '%s\n' '{"schemaVersion":1,"id":"codex","limits":[{"label":"5h window","percent":0.42,"resetsAt":""}]}' \
+printf '%s\n' '{"schemaVersion":1,"id":"codex","accountId":"test-account","limits":[{"label":"5h window","percent":0.42,"resetsAt":""}]}' \
   >"$STALL_HOME/.local/state/omarchy/agents/usage/codex.json"
 
 result=$(XDG_STATE_HOME="$STALL_HOME/.local/state" HOME="$STALL_HOME" CODEX_HOME="$STALL_HOME/.codex" XDG_CACHE_HOME="$STALL_HOME/.cache" XDG_DATA_HOME="$STALL_HOME/.local/share" \
@@ -1248,8 +1248,8 @@ pass "Codex collector keeps usage read before a line that stops the read"
 
 # Seed the actual usage record, then exercise repeated failures and recovery.
 export ROOT
-python3 <<'PYTEST'
-import importlib.machinery, json, os, tempfile
+python3 <<'PYTEST' || fail "Codex timeout and permanent-failure regressions"
+import base64, importlib.machinery, json, os, tempfile
 from pathlib import Path
 from unittest.mock import patch
 collector = importlib.machinery.SourceFileLoader("codex_timeout_test", os.environ["ROOT"] + "/bin/omarchy-agent-usage-codex").load_module()
@@ -1257,7 +1257,7 @@ with tempfile.TemporaryDirectory() as state:
   path = Path(state) / "omarchy/agents/usage/codex.json"
   path.parent.mkdir(parents=True)
   meters = [{"label": "5h window", "percent": 0.42, "resetsAt": ""}]
-  record = {"schemaVersion": 1, "id": "codex", "limits": meters}
+  record = {"schemaVersion": 1, "id": "codex", "email": "a@example.com", "accountId": "test-account", "limits": meters}
   with patch.dict(os.environ, XDG_STATE_HOME=state):
     assert collector.read_previous_record() == {}
     for bad in ('{', '[]', '{"schemaVersion":1,"id":"codex","limits":"bad"}'):
@@ -1268,30 +1268,67 @@ with tempfile.TemporaryDirectory() as state:
       if method == "account/rateLimits/read":
         raise TimeoutError("account/read")
       return {"result": {}}
-    with patch.object(collector, "find_codex_binary", return_value="codex"), patch.object(collector, "has_codex_credentials", return_value=True), patch.object(collector.subprocess, "Popen"), patch.object(collector, "rpc_send"), patch.object(collector, "rpc_request", side_effect=request), patch.object(collector, "codex_rpc_help", return_value="account/read"):
+    home = Path(state) / "codex"
+    home.mkdir()
+    claims = base64.urlsafe_b64encode(json.dumps({"email": "a@example.com"}).encode()).decode().rstrip("=")
+    (home / "auth.json").write_text(json.dumps({"tokens": {"account_id": "test-account", "id_token": "header." + claims + ".signature"}}))
+    with patch.object(collector, "ENV", {}), patch.object(collector, "find_codex_binary", return_value="codex"), patch.object(collector.subprocess, "Popen"), patch.object(collector, "rpc_send"), patch.object(collector, "rpc_request", side_effect=request), patch.object(collector, "codex_rpc_help", return_value="account/read"):
+      result = collector.fetch_codex_rpc(home=home, previous=record)
+      assert result["limits"] == meters and result["retryAdvised"]
+      # Token B overrides the file login A, whose meters are cached.
+      with patch.object(collector, "ENV", {"CODEX_ACCESS_TOKEN": "account-b-token"}):
+        result = collector.fetch_codex_rpc(home=home, previous=record)
+        assert result["limits"] == [] and result["retryAdvised"]
+        assert not result.get("accountId") and not result.get("email")
+      for config in ('cli_auth_credentials_store = "keyring"', 'cli_auth_credentials_store = "auto"', 'invalid TOML'):
+        (home / "config.toml").write_text(config)
+        result = collector.fetch_codex_rpc(home=home, previous=record)
+        assert result["limits"] == [] and result["retryAdvised"]
+        assert not result.get("accountId") and not result.get("email")
+    with patch.object(collector, "find_codex_binary", return_value="codex"), patch.object(collector, "has_codex_credentials", return_value=True), patch.object(collector, "codex_identity", return_value={"email": "a@example.com", "accountId": "test-account"}), patch.object(collector.subprocess, "Popen"), patch.object(collector, "rpc_send"), patch.object(collector, "rpc_request", side_effect=request), patch.object(collector, "codex_rpc_help", return_value="account/read"):
       for bad in (None, "{", "[]"):
         if bad is None:
           path.unlink()
         else:
           path.write_text(bad)
-        result = collector.fetch_codex_rpc(previous_limits=collector.read_previous_record().get("limits"))
+        result = collector.fetch_codex_rpc(previous=collector.read_previous_record())
         assert result["limits"] == [] and result["retryAdvised"] and result["limitsStale"]
       path.write_text(json.dumps(record))
       for _ in range(2):
         previous = collector.read_previous_record()
-        result = collector.fetch_codex_rpc(previous_limits=previous["limits"])
+        result = collector.fetch_codex_rpc(previous=previous)
         assert result["limits"] == meters and result["limitsStale"] and result["retryAdvised"]
         assert result["authHelpText"] == "Codex did not respond. Retrying soon."
         record.update(result)
         path.write_text(json.dumps(record))
+      for identity in ({"email": "b@example.com", "accountId": "test-account"}, {"email": "a@example.com", "accountId": "different-account"}, {}, {"email": "", "accountId": ""}):
+        with patch.object(collector, "codex_identity", return_value=identity):
+          result = collector.fetch_codex_rpc(previous=record)
+          assert result["limits"] == [] and result["retryAdvised"]
+      result = collector.fetch_codex_rpc(previous={"limits": meters})
+      assert result["limits"] == [] and result["retryAdvised"]
+      diagnostic = "codex app-server exited: unexpected argument --unsupported"
+      for failure in (diagnostic, "Codex app-server exited before initialize"):
+        with patch.object(collector, "rpc_request", side_effect=RuntimeError(failure)), patch.object(collector, "codex_rpc_help", return_value=diagnostic):
+          result = collector.fetch_codex_rpc(previous=record)
+          assert result["limits"] == [] and result["retryAdvised"] is False
+          assert result["authHelpText"] == diagnostic
+      with patch.object(collector.subprocess, "Popen", side_effect=OSError("cannot start Codex")):
+        result = collector.fetch_codex_rpc(previous=record)
+        assert result["limits"] == [] and not result.get("retryAdvised")
+        assert result["authHelpText"] == "cannot start Codex"
+      with patch.object(collector, "rpc_request", side_effect=[{"result": {}}, {"error": {"message": "unsupported protocol"}}]):
+        result = collector.fetch_codex_rpc(previous=record)
+        assert result["limits"] == [] and not result.get("retryAdvised")
+        assert result["authHelpText"] == "unsupported protocol"
       for message in ("authentication required",):
         with patch.object(collector, "rpc_request", return_value={"error": {"message": message}}):
-          result = collector.fetch_codex_rpc(previous_limits=meters)
+          result = collector.fetch_codex_rpc(previous=record)
           assert result["limits"] == [] and not result.get("retryAdvised")
           assert result["authHelpText"] == collector.AUTH_HELP
       fresh = {"result": {"rateLimits": {"planType": "pro", "primary": {"usedPercent": 12}}}}
       with patch.object(collector, "rpc_request", return_value=fresh):
-        result = collector.fetch_codex_rpc(previous_limits=meters)
+        result = collector.fetch_codex_rpc(previous=record)
         assert result["limits"][0]["percent"] == 0.12
         assert not result.get("retryAdvised") and not result.get("limitsStale")
 print("ok - Codex preserves cached meters across repeated timeouts and replaces them on recovery")

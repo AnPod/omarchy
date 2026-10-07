@@ -242,7 +242,16 @@ for line in sys.stdin:
   print(json.dumps({"id": message["id"], "result": result}), flush=True)
 PY
 chmod +x "$test_tmp/bin/codex"
-touch "$HOME/.codex/auth.json" "$accounts/codex/side/auth.json"
+codex_login() {
+  python3 - "$1" "$2" <<'PYLOGIN'
+import base64, json, sys
+from pathlib import Path
+claims = base64.urlsafe_b64encode(json.dumps({"email": sys.argv[2]}).encode()).decode().rstrip("=")
+Path(sys.argv[1], "auth.json").write_text(json.dumps({"tokens": {"id_token": "header." + claims + ".signature"}}))
+PYLOGIN
+}
+codex_login "$HOME/.codex" "a@example.com"
+codex_login "$accounts/codex/side" "side@example.com"
 
 cat >"$accounts/codex.json" <<JSON
 {
@@ -260,6 +269,11 @@ codex_record=$(PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" 
 [[ $(jq '.limits[0].percent' <<<"$codex_record") == 0.4 ]] || fail "Codex record's own limits describe the active account" "$codex_record"
 pass "Codex record lists every registered account"
 
+unknown=$(CODEX_ACCESS_TOKEN=token PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
+jq -e '.email == "" and .accountId == "" and ([.accounts[] | {email, accountId, used: .limits[0].percent}] == [{email: "", accountId: "", used: 0.4}, {email: "", accountId: "", used: 0.91}])' <<<"$unknown" >/dev/null ||
+  fail "Codex multi-account collection succeeds with unknown login identities" "$unknown"
+pass "Codex multi-account collection succeeds with unknown login identities"
+
 inherited=$(CODEX_HOME="$accounts/codex/side" PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
 [[ $(jq -c '[.accounts[] | .limits[0].percent]' <<<"$inherited") == '[0.4,0.91]' ]] ||
   fail "Main's Codex limits come from ~/.codex whatever CODEX_HOME says" "$inherited"
@@ -271,7 +285,7 @@ rm "$accounts/codex/side/auth.json"
 signed_out=$(PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
 [[ $(jq -c '[.accounts[] | {id, used: .limits[0].percent, status: .usageStatusText}]' <<<"$signed_out") == '[{"id":"main","used":0.4,"status":""},{"id":"side","used":null,"status":"Waiting for auth"}]' ]] ||
   fail "a signed-out Codex home waits for auth on its own" "$signed_out"
-touch "$accounts/codex/side/auth.json"
+codex_login "$accounts/codex/side" "side@example.com"
 pass "a signed-out Codex home waits for auth on its own"
 
 mkdir -p "$XDG_STATE_HOME/omarchy/agents/usage"
@@ -284,6 +298,14 @@ for account in side main; do
     fail "Codex transient failures retain only the matching account meters and propagate retry" "$failed"
 done
 pass "Codex retries failures in active and inactive accounts with their own cached meters"
+
+codex_login "$HOME/.codex" "b@example.com"
+failed=$(TIMEOUT_ACCOUNT=main PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+jq -e '.limits == [] and (.accounts[] | select(.primary) | .email == "b@example.com" and .limits == [] and .retryAdvised == true)' <<<"$failed" >/dev/null ||
+  fail "Codex registered primary never inherits another login's meters" "$failed"
+codex_login "$HOME/.codex" "a@example.com"
+pass "Codex registered primary never inherits another login's meters"
+
 rm "$accounts/codex/side/auth.json"
 signed_out=$(PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
 jq -e '.retryAdvised == false and (.accounts[] | select(.id == "side") | .limits == [] and .retryAdvised == false)' <<<"$signed_out" >/dev/null ||
@@ -292,7 +314,7 @@ pass "Codex auth failure never inherits cached meters or retry advice"
 
 # Remove an active secondary, leaving a single-account registry but a cache
 # whose top-level meters still describe that secondary.
-touch "$accounts/codex/side/auth.json"
+codex_login "$accounts/codex/side" "side@example.com"
 jq '.active = "side"' "$accounts/codex.json" >"$test_tmp/registry.json"
 mv "$test_tmp/registry.json" "$accounts/codex.json"
 active_side=$(PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
@@ -307,6 +329,19 @@ jq -e '.limits[0].percent == 0.4 and .limitsStale == true and .retryAdvised == t
   fail "Codex primary timeout after secondary removal retains only primary meters" "$failed"
 pass "Codex primary timeout after secondary removal retains only primary meters"
 
+codex_login "$HOME/.codex" "b@example.com"
+failed=$(TIMEOUT_ACCOUNT=main PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+jq -e '.email == "b@example.com" and .limits == [] and .retryAdvised == true' <<<"$failed" >/dev/null ||
+  fail "Codex single primary never inherits another login's cached primary meters" "$failed"
+# Also reject a previous single-account record after the login changes.
+jq 'del(.accounts) | .email = "a@example.com" | .limits = [{label: "5h window", percent: 0.4, resetsAt: ""}]' <<<"$failed" >"$cache_record"
+failed=$(TIMEOUT_ACCOUNT=main PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+jq -e '.limits == [] and .retryAdvised == true' <<<"$failed" >/dev/null ||
+  fail "Codex single-account timeout never inherits another login's meters" "$failed"
+codex_login "$HOME/.codex" "a@example.com"
+pass "Codex single-account timeout never inherits another login's meters"
+
+
 # A multi-account cache with no primary must never reuse secondary meters.
 jq '.accounts |= map(select(.primary | not))' <<<"$active_side" >"$cache_record"
 failed=$(FAIL_ACCOUNT=main PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
@@ -320,7 +355,7 @@ jq -e '.limits[0].percent == 0.4 and (has("accounts") | not)' <<<"$single" >/dev
   fail "Codex cache fixture describes the single primary account" "$single"
 printf '%s\n' "$single" >"$cache_record"
 mkdir -p "$accounts/codex/side"
-touch "$accounts/codex/side/auth.json"
+codex_login "$accounts/codex/side" "side@example.com"
 jq '.accounts += [{id: "side", label: "Side", home: $home, primary: false}]' --arg home "$accounts/codex/side" "$accounts/codex.json" >"$test_tmp/registry.json"
 mv "$test_tmp/registry.json" "$accounts/codex.json"
 failed=$(TIMEOUT_ACCOUNT=main PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
