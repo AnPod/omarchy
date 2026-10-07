@@ -27,9 +27,9 @@ write_pci_devices() {
 }
 
 # Build a DRM tree under $tmp_dir/drm. Args are "pci-index:connector:status"
-# where pci-index matches write_pci_devices order. Connectors without a status
-# file model writeback-only outputs. Multiple connectors for the same PCI
-# index share one card directory.
+# where pci-index matches write_pci_devices order. An empty status writes no
+# status file. Multiple connectors for the same PCI index share one card
+# directory.
 write_drm_cards() {
   rm -rf "$tmp_dir/drm"
   mkdir -p "$tmp_dir/drm"
@@ -121,9 +121,10 @@ write_drm_cards "0:eDP-1:connected" "1:DP-1:connected"
 assert_hooks "hybrid system keeps kms for the connected iGPU" \
   "$nvidia_modules" "$with_kms"
 
-# Desktop: AMD iGPU present but idle (writeback only), displays on NVIDIA.
+# Desktop: AMD iGPU present but idle, displays on NVIDIA. amdgpu always exposes
+# a Writeback-1 connector, whose status reads "unknown".
 write_pci_devices 0x1002:0x030000 0x10de:0x030000
-write_drm_cards "0:Writeback-1:" "1:DP-1:connected" "1:DP-2:connected"
+write_drm_cards "0:Writeback-1:unknown" "1:DP-1:connected" "1:DP-2:connected"
 assert_hooks "desktop with idle iGPU drops kms" \
   "$nvidia_modules" "$without_kms"
 
