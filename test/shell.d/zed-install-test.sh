@@ -12,8 +12,14 @@ export HOME="$test_tmp/home"
 mkdir -p "$mock_bin"
 ln -s "$ROOT/bin/omarchy-cmd-missing" "$mock_bin/omarchy-cmd-missing"
 
+cat >"$mock_bin/uname" <<'SH'
+#!/bin/bash
+echo "$OMARCHY_TEST_ARCH"
+SH
+
 cat >"$mock_bin/pacman" <<'SH'
 #!/bin/bash
+printf 'lookup:%s\n' "$*" >>"$OMARCHY_TEST_LOG"
 [[ ${OMARCHY_TEST_ZED_AVAILABLE:-0} == "1" ]]
 SH
 
@@ -50,15 +56,35 @@ done
 export OMARCHY_TEST_LOG="$test_tmp/install.log"
 export PATH="$mock_bin:$HOME/.local/bin"
 
-OMARCHY_TEST_ZED_AVAILABLE=1 bash "$ROOT/bin/omarchy-install-editor-zed"
-grep -Fxq 'pkg:zed omazed' "$OMARCHY_TEST_LOG" ||
-  fail "repo-available Zed installs in the existing package transaction"
-if grep -q '^curl:' "$OMARCHY_TEST_LOG"; then
-  fail "repo-available Zed does not run the upstream installer"
-fi
-pass "repo-available Zed uses the existing package transaction"
+reset_fixture() {
+  rm -rf "$HOME" "$mock_bin/zeditor"
+  : >"$OMARCHY_TEST_LOG"
+}
 
-: >"$OMARCHY_TEST_LOG"
+assert_package_path() {
+  grep -Fxq 'pkg:zed omazed' "$OMARCHY_TEST_LOG" ||
+    fail "Zed installs in the existing package transaction"
+  if grep -Eq '^(curl:|upstream-installer$)' "$OMARCHY_TEST_LOG"; then
+    fail "package installation does not run the upstream installer"
+  fi
+}
+
+reset_fixture
+OMARCHY_TEST_ARCH=x86_64 OMARCHY_TEST_ZED_AVAILABLE=0 bash "$ROOT/bin/omarchy-install-editor-zed"
+assert_package_path
+if grep -q '^lookup:' "$OMARCHY_TEST_LOG"; then
+  fail "x86_64 skips the package availability lookup"
+fi
+pass "x86_64 uses packages even with an unavailable sync database"
+
+reset_fixture
+OMARCHY_TEST_ARCH=aarch64 OMARCHY_TEST_ZED_AVAILABLE=1 bash "$ROOT/bin/omarchy-install-editor-zed"
+assert_package_path
+grep -Fxq 'lookup:-Si zed' "$OMARCHY_TEST_LOG" || fail "aarch64 checks package availability"
+pass "aarch64 with repo-available Zed uses packages"
+
+export OMARCHY_TEST_ARCH=aarch64
+reset_fixture
 OMARCHY_TEST_ZED_AVAILABLE=0 bash "$ROOT/bin/omarchy-install-editor-zed"
 grep -Fxq 'pkg:omazed' "$OMARCHY_TEST_LOG" ||
   fail "repo-unavailable Zed installs omazed separately"
@@ -73,11 +99,20 @@ pass "repo-unavailable Zed installs omazed and runs the official installer"
 [[ $(zeditor) == "mock-zed" ]] || fail "zeditor executes the upstream Zed command"
 pass "upstream Zed resolves and executes as zeditor"
 
+: >"$OMARCHY_TEST_LOG"
 OMARCHY_TEST_ZED_AVAILABLE=0 bash "$ROOT/bin/omarchy-install-editor-zed"
 [[ $(zeditor) == "mock-zed" ]] || fail "repeated fallback installation keeps zeditor working"
 pass "repeated fallback installation succeeds"
 
-rm "$HOME/.local/bin/zeditor"
+reset_fixture
+mkdir -p "$HOME/.local/bin"
+ln -s missing-zed "$HOME/.local/bin/zeditor"
+OMARCHY_TEST_ZED_AVAILABLE=0 bash "$ROOT/bin/omarchy-install-editor-zed"
+[[ -L $HOME/.local/bin/zeditor && $(readlink "$HOME/.local/bin/zeditor") == "zed" && $(zeditor) == "mock-zed" ]] ||
+  fail "fallback installation replaces a dangling zeditor link with working Zed"
+pass "fallback installation replaces a dangling zeditor link"
+
+reset_fixture
 cat >"$mock_bin/zeditor" <<'SH'
 #!/bin/bash
 echo existing-zeditor

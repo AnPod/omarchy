@@ -3,14 +3,14 @@
 # omarchy:summary=Install Zed Editor and configure it with the current Omarchy theme
 
 echo "Installing Zed Editor..."
-if pacman -Si zed &>/dev/null; then
+if [[ $(uname -m) == "x86_64" ]] || pacman -Si zed &>/dev/null; then
   omarchy-pkg-add zed omazed
 else
   omarchy-pkg-add omazed || exit 1
   set -o pipefail
   curl -fsSL https://zed.dev/install.sh | sh || exit 1
   if omarchy-cmd-missing zeditor; then
-    ln -s zed "$HOME/.local/bin/zeditor" || exit 1
+    ln -sfn zed "$HOME/.local/bin/zeditor" || exit 1
   fi
 fi
 
