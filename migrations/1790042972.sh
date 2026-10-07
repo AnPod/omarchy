@@ -10,5 +10,5 @@ if [[ -s $config_file ]] && jq -e '[.bar.layout[]?[]? | if type == "object" then
   echo "Elsewhen is already on the bar"
 else
   omarchy-bar put omarchy.elsewhen --before omarchy.clock ||
-    echo "Could not put Elsewhen on the bar now; add it with: omarchy bar put omarchy.elsewhen" >&2
+    echo "Could not put Elsewhen on the bar now; add it with: omarchy bar put omarchy.elsewhen --before omarchy.clock" >&2
 fi

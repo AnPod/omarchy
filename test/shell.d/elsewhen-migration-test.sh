@@ -83,7 +83,7 @@ pass "an absent shell leaves the update running"
 # reports a manual recovery command and still records completion.
 run TEST_PUT_ERROR="omarchy-shell is not responding" OMARCHY_SHELL_READY_ATTEMPTS=2 || \
   fail "a non-responding shell must not fail the migration" "$(cat "$test_dir/output")"
-grep -q "add it with: omarchy bar put omarchy.elsewhen" "$test_dir/output" ||
+grep -q "add it with: omarchy bar put omarchy.elsewhen --before omarchy.clock" "$test_dir/output" ||
   fail "a timed-out placement reports the recovery command" "$(cat "$test_dir/output")"
 [[ $(cat "$CALL_LOG") == "$expected" ]] ||
   fail "a timed-out put must be attempted only once" "$(cat "$CALL_LOG")"
@@ -93,10 +93,16 @@ mkdir -p "$fake_root/migrations"
 cp "$ROOT/migrations/1790042972.sh" "$fake_root/migrations/"
 marker_state="$test_dir/marker-state"
 mkdir -p "$marker_state"
+# Redirect only the package-lock path in a test copy of the real runner. A
+# package transaction on the host must not stall this isolated regression.
+grep -Fx '  local lock_file=/var/lib/pacman/db.lck' "$ROOT/bin/omarchy-migrate" >/dev/null ||
+  fail "migration runner package-lock path changed; update the isolation fixture"
+sed "s|local lock_file=/var/lib/pacman/db.lck|local lock_file=$test_dir/pacman/db.lck|" \
+  "$ROOT/bin/omarchy-migrate" >"$test_dir/omarchy-migrate"
 OMARCHY_MIGRATION_STATE="$marker_state" OMARCHY_PATH="$fake_root" \
   HOME="$test_dir/home" PATH="$test_dir/bin:$ROOT/bin:$PATH" \
   TEST_PUT_ERROR="omarchy-shell is not responding" OMARCHY_SHELL_READY_ATTEMPTS=2 \
-  "$ROOT/bin/omarchy-migrate" >"$test_dir/migrate-output" 2>&1 || \
+  bash "$test_dir/omarchy-migrate" >"$test_dir/migrate-output" 2>&1 || \
   fail "omarchy-migrate must complete when put times out" "$(cat "$test_dir/migrate-output")"
 [[ -f $marker_state/1790042972.sh ]] || fail "a timed-out put must still write the marker" "$(cat "$test_dir/migrate-output")"
 pass "a non-responding shell leaves the update running with a marker"
