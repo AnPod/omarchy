@@ -9,11 +9,9 @@ o.window("(^.+-youtube\\.com__.*$|^.+-app\\.zoom\\.us__wc_home.*$)", { tag = "-c
 -- Chrome Live Caption / Live Translate bubble. Same class as the browser, so
 -- the tile=true rule above would pull it into the layout; float it instead.
 o.window({ tag = "chromium-based-browser", title = "(Live Caption|Live Translate|实时字幕)" }, {
-  tag = "-default-opacity",
   float = true,
   pin = true,
   border_size = 0,
-  opacity = "1 1",
 })
 
 -- Hide screen sharing notification windows.
