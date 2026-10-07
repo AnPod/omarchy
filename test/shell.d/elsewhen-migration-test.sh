@@ -79,10 +79,14 @@ run SHELL_ABSENT=1 OMARCHY_SHELL_ABSENT_ATTEMPTS=1 || fail "an absent shell must
 grep -q "omarchy.elsewhen was not put on the bar" "$test_dir/output" || fail "an absent shell is reported" "$(cat "$test_dir/output")"
 pass "an absent shell leaves the update running"
 
-# A shell that times out on IPC is retried, then ignored so the marker lands.
+# A timed-out put is not resent: it may already have run. The migration
+# reports a manual recovery command and still records completion.
 run TEST_PUT_ERROR="omarchy-shell is not responding" OMARCHY_SHELL_READY_ATTEMPTS=2 || \
   fail "a non-responding shell must not fail the migration" "$(cat "$test_dir/output")"
-grep -q "did not become ready" "$test_dir/output" || fail "a non-responding shell is reported" "$(cat "$test_dir/output")"
+grep -q "add it with: omarchy bar put omarchy.elsewhen" "$test_dir/output" ||
+  fail "a timed-out placement reports the recovery command" "$(cat "$test_dir/output")"
+[[ $(cat "$CALL_LOG") == "$expected" ]] ||
+  fail "a timed-out put must be attempted only once" "$(cat "$CALL_LOG")"
 
 fake_root="$test_dir/fake-root"
 mkdir -p "$fake_root/migrations"
