@@ -41,16 +41,29 @@ resolve_esp_path() {
   return 1
 }
 
-largest_uki_bytes() {
-  local esp_path=$1
-  local size
-
-  size=$(find "$esp_path/EFI/Linux" -maxdepth 1 -type f -name '*.efi' -printf '%s\n' 2>/dev/null | sort -n | tail -1)
-  if [[ $size =~ ^[0-9]+$ ]]; then
-    echo "$size"
-  else
-    echo 0
+esp_required_bytes() {
+  local esp_path=$1 sizes size largest=0 uki_count=0 kernel_count
+  if [[ -d $esp_path/EFI/Linux ]]; then
+    if ! sizes=$(find "$esp_path/EFI/Linux" -maxdepth 1 -type f -name '*.efi' -printf '%s\n' 2>/dev/null); then
+      echo "Could not read UKI sizes on $esp_path; check ESP free space before updating." >&2
+      return 1
+    fi
+    while IFS= read -r size; do
+      [[ $size =~ ^[0-9]+$ ]] || continue
+      ((uki_count += 1))
+      if (( size > largest )); then largest=$size; fi
+    done <<<"$sizes"
+  elif [[ ! -r $esp_path || ! -x $esp_path ]]; then
+    echo "Could not read $esp_path; check ESP free space before updating." >&2
+    return 1
   fi
+  kernel_count=$(pacman -Qq linux linux-omarchy linux-lts linux-zen linux-hardened 2>/dev/null | wc -l)
+  if (( uki_count > kernel_count )); then kernel_count=$uki_count; fi
+  if (( kernel_count < 1 )); then kernel_count=1; fi
+  # Reserve a largest-size image per kernel plus a spare for snapshot history.
+  local required=$((largest * (kernel_count + 1)))
+  if (( required < ESP_FLOOR_BYTES )); then required=$ESP_FLOOR_BYTES; fi
+  echo "$required"
 }
 
 if [[ ${OMARCHY_UPDATE_FORCE:-0} == "1" ]]; then
@@ -65,13 +78,15 @@ if read -r available_bytes < <(df --output=avail --block-size=1 / 2>/dev/null | 
 fi
 
 if esp_path=$(resolve_esp_path); then
+  esp_source=$(findmnt -nro SOURCE -T "$esp_path" 2>/dev/null || true)
+  root_source=$(findmnt -nro SOURCE -T / 2>/dev/null || true)
+  if [[ -n $esp_source && $esp_source == "$root_source" ]]; then
+    exit 0
+  fi
   if read -r esp_available_bytes < <(df --output=avail --block-size=1 "$esp_path" 2>/dev/null | tail -n 1) &&
     [[ $esp_available_bytes =~ ^[0-9]+$ ]]; then
-    uki_bytes=$(largest_uki_bytes "$esp_path")
-    if (( uki_bytes > 0 )); then
-      esp_required_bytes=$uki_bytes
-    else
-      esp_required_bytes=$ESP_FLOOR_BYTES
+    if ! esp_required_bytes=$(esp_required_bytes "$esp_path"); then
+      exit 0
     fi
 
     if (( esp_available_bytes < esp_required_bytes )); then
@@ -81,6 +96,8 @@ if esp_path=$(resolve_esp_path); then
       echo "You need at least ${required_mib} MiB free on ${esp_path} to safely update Omarchy (${shortfall_mib} MiB short)."
       exit 1
     fi
+  else
+    echo "Could not determine free space on $esp_path; check the ESP before updating." >&2
   fi
 fi
 

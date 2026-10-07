@@ -110,6 +110,12 @@ write_stub mountpoint '
 [[ ${1:-} == "'"$esp_root"'" ]]
 '
 
+write_stub pacman '
+[[ $1 == "-Qq" ]] || exit 0
+printf "linux\nlinux-lts\n"'
+write_stub findmnt '
+if [[ $* == *"-T /" ]]; then echo /dev/root; else echo /dev/esp; fi'
+
 write_stub gum '
 printf "%s\n" "$*" >>"$GUM_MARKER"
 if [[ ${1:-} == "confirm" ]]; then
@@ -203,9 +209,10 @@ pass "failed disk-space detection silently continues"
 # --- ESP free-space coverage -------------------------------------------------
 
 uki_bytes=$(stat -c %s -- "$esp_root/EFI/Linux/omarchy_linux.efi")
-esp_short_bytes=$((uki_bytes - 50 * 1024 * 1024))
-required_mib=$(((uki_bytes + 1024 * 1024 - 1) / (1024 * 1024)))
-shortfall_mib=$(((uki_bytes - esp_short_bytes + 1024 * 1024 - 1) / (1024 * 1024)))
+required_bytes=$((uki_bytes * 3))
+esp_short_bytes=$((required_bytes - 50 * 1024 * 1024))
+required_mib=$(((required_bytes + 1024 * 1024 - 1) / (1024 * 1024)))
+shortfall_mib=$(((required_bytes - esp_short_bytes + 1024 * 1024 - 1) / (1024 * 1024)))
 
 set +e
 output=$(
@@ -252,12 +259,12 @@ rm -f "$snapshot_marker" "$gum_marker"
 output=$(
   OMARCHY_TEST_LIMINE_DEFAULT="$limine_default" \
   TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) \
-  TEST_ESP_AVAILABLE_BYTES=$uki_bytes \
+  TEST_ESP_AVAILABLE_BYTES=$required_bytes \
   run_update -y
 )
-[[ $output != *"free on ${esp_root}"* ]] || fail "ESP space equal to the largest UKI does not produce a warning"
-[[ -f $snapshot_marker ]] || fail "ESP space equal to the largest UKI allows the update"
-pass "ESP free-space threshold includes the exact UKI boundary"
+[[ $output != *"free on ${esp_root}"* ]] || fail "ESP space equal to the kernel reserve does not produce a warning"
+[[ -f $snapshot_marker ]] || fail "ESP space equal to the kernel reserve allows the update"
+pass "ESP free-space threshold includes the exact kernel-reserve boundary"
 
 # No UKIs: require the 400 MiB floor
 rm -rf "$esp_root/EFI/Linux"
@@ -285,8 +292,21 @@ output=$(
   TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) \
   TEST_ESP_DF_INVALID=1 \
   TEST_ESP_AVAILABLE_BYTES=0 \
-  run_update -y
+  run_update -y 2>&1
 )
-[[ -z $output ]] || fail "failed ESP free-space detection remains silent"
+[[ $output == *"Could not determine free space"* ]] || fail "failed ESP free-space detection warns" "$output"
 [[ -f $snapshot_marker ]] || fail "failed ESP free-space detection does not block the update"
-pass "failed ESP free-space detection silently continues"
+pass "failed ESP free-space detection warns and continues"
+
+# A bind-mounted /boot on root must use the root free-space requirement.
+write_stub findmnt 'echo /dev/root'
+output=$(TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) OMARCHY_TEST_LIMINE_DEFAULT="$limine_default" TEST_ESP_AVAILABLE_BYTES=0 run_requires_free_space 2>&1)
+[[ -z $output ]] || fail "ESP sharing root must not require separate headroom" "$output"
+pass "ESP sharing root uses the root check"
+write_stub findmnt '
+if [[ $* == *"-T /" ]]; then echo /dev/root; else echo /dev/esp; fi'
+# Permission errors must remain visible instead of looking like no UKIs exist.
+write_stub find 'exit 1'
+output=$(TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) OMARCHY_TEST_LIMINE_DEFAULT="$limine_default" TEST_ESP_AVAILABLE_BYTES=$((1024 * 1024 * 1024)) run_requires_free_space 2>&1)
+[[ $output == *"Could not read UKI sizes"* ]] || fail "unreadable ESP warns" "$output"
+pass "unreadable ESP sizes warn instead of silently passing"
