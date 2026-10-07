@@ -52,21 +52,15 @@ guarded_before=$(cat "$bin_dir/guarded")
 
 run_migration
 
-grep -Fq '_OMARCHY_MISE_GUARD_CLAUDE' "$bin_dir/claude" ||
-  fail "migration adds a re-entry guard to an unguarded quiet wrapper"
-grep -Fq 'exec mise x "claude" -- "claude" "$@"' "$bin_dir/claude" ||
-  fail "migration keeps mise x after the guard"
-pass "migration guards an unguarded quiet wrapper"
-
-grep -Fq '_OMARCHY_MISE_GUARD_OMP' "$bin_dir/omp" ||
-  fail "migration adds a guard when the command name differs from the package"
-grep -Fq 'exec mise x "github:can1357/oh-my-pi" -- "omp" "$@"' "$bin_dir/omp" ||
-  fail "migration keeps package and bin names"
-pass "migration preserves package and bin names"
-
-grep -Fq '_OMARCHY_MISE_GUARD_GHUI' "$bin_dir/ghui" ||
-  fail "migration guards a scoped npm package wrapper"
-pass "migration preserves a scoped npm package name"
+for spec in 'claude claude claude' 'omp github:can1357/oh-my-pi omp' 'ghui npm:@kitlangton/ghui ghui'; do
+  read -r command package bin <<<"$spec"
+  grep -Fq "mise which --tool \"$package\" -- \"$bin\"" "$bin_dir/$command" ||
+    fail "migration preserves the package and bin in tool-scoped resolution"
+  grep -Fq 'exec mise x' "$bin_dir/$command" || fail "migration retains mise execution environment"
+  grep -Fq '"$bin_path" "$@"' "$bin_dir/$command" || fail "migration executes the absolute target with its arguments"
+  grep -Fq '_OMARCHY_MISE_GUARD_' "$bin_dir/$command" && fail "migration must not leak a guard into real tools"
+done
+pass "migration replaces old wrappers with package-scoped absolute execution"
 
 [[ $(cat "$bin_dir/guarded") == "$guarded_before" ]] ||
   fail "migration leaves an already-guarded wrapper alone"

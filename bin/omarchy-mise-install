@@ -45,10 +45,6 @@ case "$bin" in
   *) bin_arg="\"$bin\"" ;;
 esac
 
-# Named after the command so a tool that shells out to a different wrapped tool
-# is not mistaken for recursion into itself.
-guard="_OMARCHY_MISE_GUARD_$(printf '%s' "$command" | tr -c 'A-Za-z0-9_' '_' | tr '[:lower:]' '[:upper:]')"
-
 # These tools install and upgrade on first run, so mise's release cooldown would
 # hold a new version back for days after it ships. Exported rather than set on
 # the install line alone, so resolving the version to execute agrees with the
@@ -56,17 +52,22 @@ guard="_OMARCHY_MISE_GUARD_$(printf '%s' "$command" | tr -c 'A-Za-z0-9_' '_' | t
 rm -f "$HOME/.local/bin/$command"
 cat >"$HOME/.local/bin/$command" <<EOF
 #!/bin/bash
-# mise resolves the command below by PATH when the tool does not provide it,
-# which finds this stub again. Fail fast rather than recursing until the machine
-# runs out of processes.
-if [ -n "\$$guard" ]; then
+export MISE_MINIMUM_RELEASE_AGE=0
+mise use -g --quiet $package_arg || exit 1
+# Resolve from the requested tool, never from PATH where this wrapper lives.
+if bin_path=\$(mise which --tool $package_arg -- $bin_arg 2>/dev/null) &&
+  tool_path=\$(mise where $package_arg 2>/dev/null) &&
+  [[ \$bin_path == /* && \$tool_path == /* && -x \$bin_path ]] &&
+  bin_path=\$(readlink -f -- "\$bin_path") &&
+  tool_path=\$(readlink -f -- "\$tool_path") &&
+  [[ \$bin_path == "\$tool_path/"* &&
+     \$bin_path != \$(readlink -f -- "\${BASH_SOURCE[0]}") ]]; then
+  # Keep mise's tool environment (e.g. Node for npm tools) with an absolute target.
+  exec mise x $package_arg -- "\$bin_path" "\$@"
+else
   printf '%s: mise could not provide "%s" from tool "%s" (is it installed?)\\n' $command_arg $bin_arg $package_arg >&2
   exit 127
 fi
-export $guard=1
-export MISE_MINIMUM_RELEASE_AGE=0
-mise use -g --quiet $package_arg || exit 1
-exec mise x $package_arg -- $bin_arg "\$@"
 EOF
 
 chmod +x "$HOME/.local/bin/$command"

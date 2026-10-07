@@ -3,8 +3,8 @@ echo "Regenerate mise wrappers that can recurse through PATH when a tool is miss
 # omarchy-mise-install stubs used `mise x … -- bin`, which falls back to PATH
 # when the tool does not provide that binary. The stub lives on PATH, so a
 # missing tool re-executes itself until the machine stalls (#13177). New stubs
-# carry a per-command re-entry guard; rewrite every generated wrapper that is
-# still on the unguarded quiet template.
+# resolve and execute an absolute tool path; rewrite every generated wrapper
+# still on the old quiet template.
 
 unguarded_quiet_template() {
   local package=$1 bin=$2
