@@ -38,8 +38,9 @@ BarWidget {
   function refresh(keepView) {
     displayDate = new Date()
     if (panelLoader.item) {
+      var viewingCurrentMonth = panelLoader.item.viewingCurrentMonth
       panelLoader.item.today = new Date()
-      if (!keepView && panelLoader.item.refresh) panelLoader.item.refresh()
+      if ((!keepView || viewingCurrentMonth) && panelLoader.item.refresh) panelLoader.item.refresh()
     }
   }
 
