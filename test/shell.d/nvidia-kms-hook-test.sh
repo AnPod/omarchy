@@ -134,6 +134,18 @@ write_drm_cards "0:HDMI-A-1:connected" "1:DP-1:connected"
 assert_hooks "non-NVIDIA GPU with a connected output keeps kms" \
   "$nvidia_modules" "$with_kms"
 
+# A physical port that cannot tell, such as VGA without load detection, may be
+# driving the display: inconclusive, keep kms.
+write_pci_devices 0x8086:0x030000 0x10de:0x030000
+write_drm_cards "0:VGA-1:unknown" "1:DP-1:connected"
+assert_hooks "iGPU port reporting unknown keeps kms" \
+  "$nvidia_modules" "$with_kms"
+
+write_pci_devices 0x8086:0x030000 0x10de:0x030000
+write_drm_cards "0:HDMI-A-1:" "1:DP-1:connected"
+assert_hooks "iGPU connector without a readable status keeps kms" \
+  "$nvidia_modules" "$with_kms"
+
 # Idle iGPU whose DRM card is missing entirely: inconclusive, keep kms.
 write_pci_devices 0x1002:0x030000 0x10de:0x030000
 write_drm_cards "1:DP-1:connected"
