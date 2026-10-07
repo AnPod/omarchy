@@ -128,6 +128,14 @@ write_drm_cards "0:Writeback-1:unknown" "1:DP-1:connected" "1:DP-2:connected"
 assert_hooks "desktop with idle iGPU drops kms" \
   "$nvidia_modules" "$without_kms"
 
+# The motherboard's own ports hang off the iGPU too, and read disconnected
+# when nothing is plugged in.
+write_pci_devices 0x1002:0x030000 0x10de:0x030000
+write_drm_cards "0:DP-1:disconnected" "0:HDMI-A-1:disconnected" \
+  "0:Writeback-1:unknown" "1:DP-1:connected"
+assert_hooks "idle iGPU with disconnected ports drops kms" \
+  "$nvidia_modules" "$without_kms"
+
 # Same PCI layout, but the iGPU has a connected output — keep kms.
 write_pci_devices 0x1002:0x030000 0x10de:0x030000
 write_drm_cards "0:HDMI-A-1:connected" "1:DP-1:connected"
