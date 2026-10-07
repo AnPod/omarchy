@@ -20,6 +20,10 @@ The installer keeps 1Password's display scaling consistent when **Start at Login
 
 You start Spotify using `Super + Shift + M`. Like 1Password, the hotkey kicks off the installation first if Spotify isn't installed yet (or use _Install > Service > Spotify_ from the Omarchy menu).
 
+## Slack
+
+[Slack](https://slack.com/) is where a lot of teams do their chatting, both inside the company and with outside collaborators. Install it with _Install > Service > Slack_ from the Omarchy menu, and it'll open as soon as it's ready.
+
 ## Dropbox
 
 [Dropbox](https://www.dropbox.com/) is a great way to sync files between machines while keeping a backup in the cloud. To set it up, select _Install > Service > Dropbox_ from the Omarchy menu. Once it's running, hover the tray in the top right of the bar and right-click the Dropbox icon to finish the setup.
