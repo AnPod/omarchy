@@ -1,66 +1,62 @@
 #!/bin/bash
 
 set -euo pipefail
-
 source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
-TMPDIR=$(mktemp -d)
-trap 'chmod -R u+w "$TMPDIR" 2>/dev/null || true; rm -rf "$TMPDIR"' EXIT
-
-STUB_DIR="$TMPDIR/stub"
-mkdir -p "$STUB_DIR" "$TMPDIR/cache/yay/hyprmoncfg/src/go-mod/github.com/pkg" "$TMPDIR/home"
-
-# Simulate Go's read-only module cache left from a previous yay build.
-touch "$TMPDIR/cache/yay/hyprmoncfg/src/go-mod/github.com/pkg/LICENSE"
-chmod a-w "$TMPDIR/cache/yay/hyprmoncfg/src/go-mod/github.com/pkg/LICENSE"
-chmod a-w "$TMPDIR/cache/yay/hyprmoncfg/src/go-mod/github.com/pkg"
-chmod a-w "$TMPDIR/cache/yay/hyprmoncfg/src/go-mod"
-
-cat >"$STUB_DIR/pacman" <<'STUB'
+test_tmp=$(mktemp -d)
+trap 'chmod -R u+w "$test_tmp" 2>/dev/null || true; rm -rf "$test_tmp"' EXIT
+mkdir -p "$test_tmp/bin" "$test_tmp/home"
+export FAKE_CALLS="$test_tmp/calls" FAKE_NOTIFICATIONS="$test_tmp/notifications"
+for layout in hyprmoncfg/src/go-mod standard/src/pkg/mod nested/src/gopath/pkg/mod; do
+  mkdir -p "$test_tmp/cache/yay/$layout/module"
+  touch "$test_tmp/cache/yay/$layout/module/LICENSE"
+  chmod -R a-w "$test_tmp/cache/yay/$layout"
+done
+cat >"$test_tmp/bin/pacman" <<'SH'
 #!/bin/bash
 [[ $1 == "-Qem" ]] || exit 90
-exit 0
-STUB
-
-cat >"$STUB_DIR/omarchy-pkg-aur-accessible" <<'STUB'
+exit "${TEST_NO_AUR:-0}"
+SH
+cat >"$test_tmp/bin/omarchy-pkg-aur-accessible" <<'SH'
 #!/bin/bash
-exit 0
-STUB
-
-cat >"$STUB_DIR/yay" <<'STUB'
+exit "${TEST_AUR_UNAVAILABLE:-0}"
+SH
+cat >"$test_tmp/bin/yay" <<'SH'
 #!/bin/bash
-printf 'yay %s\n' "$*" >>"$FAKE_CALLS"
-exit 1
-STUB
-
-chmod +x "$STUB_DIR"/*
-
-FAKE_CALLS="$TMPDIR/calls"
-export FAKE_CALLS
-: >"$FAKE_CALLS"
-
-aur_pkgs=$(cat "$ROOT/bin/omarchy-update-aur-pkgs")
-[[ $aur_pkgs == *'writable_yay_go_mod_caches'* ]] || fail "AUR update must soften read-only yay go-mod caches"
-[[ $aur_pkgs == *'src/go-mod'* ]] || fail "AUR update must look for go-mod trees under yay's cache"
-[[ $aur_pkgs != *'yay '* ]] || true
-if grep -Eq 'yay .*\|\| exit 1' <<<"$aur_pkgs"; then
-  fail "AUR update must not abort the whole update on yay failure"
-fi
-[[ $aur_pkgs == *'AUR package update failed'* ]] || fail "AUR update must warn when yay fails"
-pass "AUR update softens go-mod caches and warns instead of aborting"
-
-HOME="$TMPDIR/home" \
-  XDG_CACHE_HOME="$TMPDIR/cache" \
-  PATH="$STUB_DIR:$PATH" \
-  OMARCHY_PATH="$ROOT" \
-  bash "$ROOT/bin/omarchy-update-aur-pkgs" >"$TMPDIR/out" 2>"$TMPDIR/err" || fail "AUR helper exited non-zero" "$(cat "$TMPDIR/err")"
-
-grep -q 'yay ' "$FAKE_CALLS" || fail "AUR helper did not invoke yay" "$(cat "$FAKE_CALLS")"
-pass "AUR helper still runs yay when foreign packages are installed"
-
-[[ -w $TMPDIR/cache/yay/hyprmoncfg/src/go-mod ]] || fail "go-mod cache stayed read-only"
-[[ -w $TMPDIR/cache/yay/hyprmoncfg/src/go-mod/github.com/pkg/LICENSE ]] || fail "go-mod file stayed read-only"
-pass "read-only yay go-mod caches become writable before yay"
-
-grep -q 'AUR package update failed' "$TMPDIR/err" || fail "yay failure was not reported as a warning" "$(cat "$TMPDIR/err")"
-pass "yay failure is reported without failing the update"
+printf '%s\n%s\n' "$GOFLAGS" "$*" >>"$FAKE_CALLS"
+exit "${TEST_YAY_STATUS:-1}"
+SH
+cat >"$test_tmp/bin/omarchy-notification-send" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >>"$FAKE_NOTIFICATIONS"
+exit "${TEST_NOTIFICATION_STATUS:-0}"
+SH
+chmod +x "$test_tmp/bin/"*
+run() {
+  : >"$FAKE_CALLS"
+  : >"$FAKE_NOTIFICATIONS"
+  HOME="$test_tmp/home" XDG_CACHE_HOME="$test_tmp/cache" PATH="$test_tmp/bin:$PATH" OMARCHY_PATH="$ROOT" \
+    bash "$ROOT/bin/omarchy-update-aur-pkgs" >"$test_tmp/out" 2>"$test_tmp/err"
+}
+GOFLAGS='-trimpath -tags=custom' run || fail "failed AUR build stays nonfatal"
+[[ $(head -1 "$FAKE_CALLS") == '-trimpath -tags=custom -modcacherw' ]] || fail "yay receives existing Go flags plus writable-cache flag"
+for layout in hyprmoncfg/src/go-mod standard/src/pkg/mod nested/src/gopath/pkg/mod; do
+  for path in "$test_tmp/cache/yay/$layout" "$test_tmp/cache/yay/$layout/module/LICENSE"; do
+    mode=$(stat -c %a "$path")
+    (( (8#$mode & 0200) != 0 )) || fail "Go cache remains read-only: $layout"
+  done
+done
+pass "all supported Go cache layouts become writable and GOFLAGS are preserved"
+grep -q 'AUR package update failed' "$test_tmp/err" || fail "AUR failure prints a terminal warning"
+grep -q 'AUR update needs attention' "$FAKE_NOTIFICATIONS" || fail "AUR failure sends a desktop notification"
+pass "failed AUR update remains visible without aborting"
+TEST_NOTIFICATION_STATUS=1 run || fail "notification failure must not abort the update"
+pass "failed desktop notification leaves the terminal warning and remains nonfatal"
+GOFLAGS='' TEST_YAY_STATUS=0 run || fail "successful AUR update succeeds"
+[[ $(head -1 "$FAKE_CALLS") == '-modcacherw' && ! -s $FAKE_NOTIFICATIONS && ! -s $test_tmp/err ]] || fail "successful update adds flag without warning"
+pass "successful AUR update emits no failure notification"
+TEST_NO_AUR=1 run
+[[ ! -s $FAKE_CALLS && ! -s $FAKE_NOTIFICATIONS ]] || fail "no foreign packages skips yay"
+TEST_AUR_UNAVAILABLE=1 run
+[[ ! -s $FAKE_CALLS && ! -s $FAKE_NOTIFICATIONS ]] || fail "unavailable AUR skips yay"
+pass "missing packages and unavailable AUR do not report a build failure"

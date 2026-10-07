@@ -19,17 +19,19 @@ writable_yay_go_mod_caches() {
   local go_mod
   while IFS= read -r -d '' go_mod; do
     chmod -R u+w -- "$go_mod" 2>/dev/null || true
-  done < <(find "$yay_cache" -type d -path '*/src/go-mod' -print0 2>/dev/null)
+  done < <(find "$yay_cache" -type d \( -path '*/src/go-mod' -o -path '*/pkg/mod' \) -print0 2>/dev/null)
 }
 
 if pacman -Qem >/dev/null; then
   if omarchy-pkg-aur-accessible; then
     echo -e "\e[32m\nUpdate AUR packages\e[0m"
     writable_yay_go_mod_caches
-    if ! yay "${sudo_options[@]}" -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs; then
+    if ! GOFLAGS="${GOFLAGS:+$GOFLAGS }-modcacherw" yay "${sudo_options[@]}" -Sua --noconfirm --cleanafter --ignore gcc14,gcc14-libs; then
       # System packages and migrations already finished. One user AUR package
       # that fails to rebuild must not paint the whole update as a failure.
-      echo -e "\e[33mAUR package update failed; system packages were updated. Fix the failing AUR package and rerun, or update it with yay directly.\e[0m" >&2
+      echo -e "\e[33mAUR package update failed. Review the output, fix the failing package, and rerun yay.\e[0m" >&2
+      omarchy-notification-send --app-name "Omarchy Update" -u normal \
+        "AUR update needs attention" "Some AUR packages failed to update. Review the terminal output and rerun yay after fixing the failing package." || true
     fi
     echo
   else
