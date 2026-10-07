@@ -1,3 +1,5 @@
-echo "Pin the device scale factor in 1Password autostart entries"
+echo "Keep 1Password display scaling consistent at login"
 
-"$OMARCHY_PATH/bin/omarchy-refresh-1password-autostart"
+if omarchy-pkg-present 1password; then
+  "$OMARCHY_PATH/bin/omarchy-refresh-1password-autostart"
+fi
