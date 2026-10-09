@@ -162,8 +162,12 @@ fi'
 export REAL_SED="$real_sed"
 
 write_stub findmnt '
-last="${*: -1}"
-[[ $last == "$TEST_ESP_PATH" ]] && echo /dev/esp || echo /dev/root'
+[[ $# == 4 && $1 == "-nro" && $2 == "SOURCE" && $3 == "-T" ]] || exit 1
+if [[ $4 == "$TEST_ESP_PATH" && ${TEST_ESP_ON_ROOT:-0} == "0" ]]; then
+  echo /dev/esp
+else
+  echo /dev/root
+fi'
 
 write_stub df '
 last="${*: -1}"
@@ -177,7 +181,27 @@ else
   printf "Avail\n%s\n" "$TEST_ESP_AVAILABLE_BYTES"
 fi'
 
+write_stub pacman '
+[[ $* == "-Qq" ]] || exit 1
+printf "%s\n" "${TEST_KERNEL_PACKAGES-linux}"
+exit "${TEST_PACMAN_STATUS:-0}"'
+
+real_find=$(command -v find)
+export REAL_FIND="$real_find"
+write_stub find '
+if [[ ${TEST_FIND_DENIED:-0} == "1" ]]; then
+  printf "123\n"
+  echo "Permission denied" >&2
+  exit 1
+else
+  exec "$REAL_FIND" "$@"
+fi'
+
 run_free_space() {
+  TEST_ESP_ON_ROOT=${TEST_ESP_ON_ROOT:-0} \
+  TEST_FIND_DENIED=${TEST_FIND_DENIED:-0} \
+  TEST_KERNEL_PACKAGES=${TEST_KERNEL_PACKAGES-linux} \
+  TEST_PACMAN_STATUS=${TEST_PACMAN_STATUS:-0} \
   TEST_ESP_PATH="$esp_tree" \
   TEST_ESP_AVAILABLE_BYTES=${TEST_ESP_AVAILABLE_BYTES:-$((600 * 1024 * 1024))} \
   TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) \
@@ -215,13 +239,56 @@ output=$(TEST_ESP_AVAILABLE_BYTES=$((1024)) run_free_space)
 status=$?
 set -e
 (( status == 0 )) || fail "ESP without UKIs does not block the update"
+[[ -z $output ]] || fail "ESP without UKIs skips silently"
 pass "ESP guard skips when there is no UKI to size against"
 
 set +e
 mkdir -p "$esp_tree/EFI/Linux"
 truncate -s 300M "$esp_tree/EFI/Linux/omarchy_linux.efi"
-output=$(TEST_ESP_PATH="/" run_free_space)
+output=$(TEST_ESP_ON_ROOT=1 TEST_ESP_AVAILABLE_BYTES=1 run_free_space)
 status=$?
 set -e
 (( status == 0 )) || fail "root-backed ESP defers to the root check"
 pass "ESP on the root filesystem is covered by the root check"
+
+[[ -z $output ]] || fail "plain ESP directory on root skips silently"
+
+output=$(TEST_FIND_DENIED=1 run_free_space 2>&1)
+[[ $output == *"$esp_tree"* && $output == *"permissions"* && $output == *"UKI headroom"* ]] ||
+  fail "failed UKI scan warns about permissions and names the ESP"
+pass "unreadable ESP warns without blocking, even with partial find output"
+
+check_headroom() {
+  local copies="$1" status output
+  output=$(TEST_ESP_AVAILABLE_BYTES=$((copies * 300 * 1024 * 1024)) run_free_space)
+  [[ -z $output ]] || fail "exact UKI headroom boundary succeeds silently"
+  set +e
+  output=$(TEST_ESP_AVAILABLE_BYTES=$((copies * 300 * 1024 * 1024 - 1)) run_free_space)
+  status=$?
+  set -e
+  (( status == 1 )) || fail "one byte below UKI headroom blocks"
+  [[ $output == *"$(numfmt --to=iec -- "$((copies * 300 * 1024 * 1024))") free in $esp_tree"* ]] || fail "warning uses calculated kernel headroom"
+}
+
+TEST_KERNEL_PACKAGES=$'linux\nlinux-headers' check_headroom 2
+pass "one installed kernel requires two copies and excludes headers"
+TEST_KERNEL_PACKAGES=$'linux\nlinux-lts\nlinux-zen\nlinux-ptl\nlinux-t2\nlinux-omarchy\nlinux-omarchy-custom\nlinux-headers\nlinux-omarchy-headers\nlinux-omarchy-custom-headers\nunrelated' check_headroom 8
+pass "installed kernel families plus one determine UKI headroom"
+TEST_KERNEL_PACKAGES= check_headroom 2
+pass "empty kernel query retains two-copy headroom"
+TEST_PACMAN_STATUS=1 TEST_KERNEL_PACKAGES=$'linux\nlinux-lts' check_headroom 2
+pass "failed kernel query falls back to two copies"
+
+# Isolate PATH so this case also works on hosts with pacman installed.
+missing_pacman_bin="$test_tmp/no-pacman"
+mkdir -p "$missing_pacman_bin"
+for command in sed findmnt find df tail sort head numfmt; do
+  ln -s "$(command -v "$command")" "$missing_pacman_bin/$command"
+done
+for command in sed findmnt find df; do
+  ln -sf "$stub_bin/$command" "$missing_pacman_bin/$command"
+done
+rm -f "$stub_bin/pacman"
+# run_free_space prepends the stubs and repo commands to this isolated PATH.
+PATH="$missing_pacman_bin" check_headroom 2
+pass "unavailable pacman falls back to two copies"
