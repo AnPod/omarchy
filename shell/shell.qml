@@ -456,7 +456,7 @@ ShellRoot {
 
   function pluginFirstPartyServiceFor(cacheKey, pluginId, requestedId) {
     var id = String(requestedId || "")
-    var allowed = ["omarchy.idle", "omarchy.media", "omarchy.nightlight", "omarchy.notifications"]
+    var allowed = ["omarchy.idle", "omarchy.media", "omarchy.nightlight", "omarchy.notifications", "omarchy.remote-session"]
     if (allowed.indexOf(id) === -1) return null
     var proxyKey = cacheKey + "::" + id
     if (_pluginFirstPartyServiceApis[proxyKey]) return _pluginFirstPartyServiceApis[proxyKey]
@@ -490,6 +490,10 @@ ShellRoot {
       _selectPlayer: function(playerKey) {
         var target = service()
         if (target && typeof target.selectPlayer === "function") target.selectPlayer(playerKey)
+      },
+      _refresh: function() {
+        var target = service()
+        if (target && typeof target.refresh === "function") target.refresh()
       }
     })
     if (!api) return null
@@ -512,6 +516,14 @@ ShellRoot {
     api.sourcePlayers = Qt.binding(function() {
       var target = service()
       return target && Array.isArray(target.sourcePlayers) ? target.sourcePlayers : []
+    })
+    api.active = Qt.binding(function() {
+      var target = service()
+      return target ? target.active === true : false
+    })
+    api.peers = Qt.binding(function() {
+      var target = service()
+      return target && Array.isArray(target.peers) ? target.peers : []
     })
     var next = ({})
     for (var existing in _pluginFirstPartyServiceApis) next[existing] = _pluginFirstPartyServiceApis[existing]
@@ -588,7 +600,7 @@ ShellRoot {
     // property, even though the resulting proxy is otherwise acyclic.
     var firstPartyServices = ({})
     if (barCapabilities) {
-      var serviceIds = ["omarchy.idle", "omarchy.media", "omarchy.nightlight", "omarchy.notifications"]
+      var serviceIds = ["omarchy.idle", "omarchy.media", "omarchy.nightlight", "omarchy.notifications", "omarchy.remote-session"]
       for (var i = 0; i < serviceIds.length; i++) {
         var serviceId = serviceIds[i]
         firstPartyServices[serviceId] = shell.pluginFirstPartyServiceFor(cacheKey, key, serviceId)
