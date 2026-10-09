@@ -30,6 +30,7 @@ Panel {
   }
 
   // Live connection details from `ip` / /sys / iw.
+  property var barStatus: ({})
   property var info: ({})  // { iface, type, ip, prefix, gateway, speed, duplex, ssid, signal, freq, bitrate, rx_bytes, tx_bytes, router_ping_ms, internet_ping_ms }
 
   // Throughput tracking. Rates are computed as deltas between successive
@@ -335,6 +336,7 @@ Panel {
       // the 100ms window reuses the running timer and re-enables the scanner
       // almost immediately, undoing the deferral #6605 restored.
       scanRestart.stop()
+      detailsProc.running = false
       // Reset throughput tracking so the next open doesn't compute a fake
       // rate from a sample taken minutes ago.
       prevSampleTime = 0
@@ -442,8 +444,8 @@ Panel {
   // has not reported yet.
   readonly property var wiredDevice: findDevice(DeviceType.Wired)
   readonly property string kind: {
-    if (info.type === "ethernet") return "ethernet"
-    if (info.type === "wifi") return "wifi"
+    if (barStatus.kind === "ethernet" || barStatus.kind === "wifi" || barStatus.kind === "disconnected")
+      return barStatus.kind
     if (wiredDevice && wiredDevice.connected) return "ethernet"
     if (connectedWifiNetwork) return "wifi"
     // NetworkManager can leave the active profile out of the device's
@@ -574,7 +576,7 @@ Panel {
   function refresh(scanWifi) {
     checkConnectivity()
     if (scanWifi === undefined) scanWifi = false
-    if (!detailsProc.running) detailsProc.running = true
+    if (opened && !detailsProc.running) detailsProc.running = true
     if (!dnsProc.running) {
       dnsProc.command = ["bash", "-c", root.dnsCommand("")]
       dnsProc.running = true
@@ -609,7 +611,12 @@ Panel {
     return Model.headerDetail(info)
   }
 
+  function updateBarStatus(raw) {
+    barStatus = Model.parseNetworkStatus(raw)
+  }
+
   function updateDetails(raw) {
+    if (!opened) return
     var next = Model.parseKeyValue(raw)
 
     // A band change tears the link down and brings it back, and the status
@@ -619,6 +626,7 @@ Panel {
     // still reported, because nothing is in flight then.
     if (bandBusy && !next.iface) return
 
+    updateBarStatus((next.type || "disconnected") + "\t" + (next.ssid || next.iface || "") + "\t\t" + (next.freq || ""))
     info = next
     updateThroughput(next)
     updatePingLatency(next)
@@ -910,6 +918,16 @@ Panel {
 
   Component.onCompleted: refresh()
 
+  // Route status for the closed bar, without latency probes.
+  Process {
+    id: barStatusProc
+    command: ["omarchy-network-status"]
+    stdout: StdioCollector {
+      waitForEnd: true
+      onStreamFinished: root.updateBarStatus(text)
+    }
+  }
+
   // Pulls everything we want about the active route's interface in one shot.
   Process {
     id: detailsProc
@@ -1019,7 +1037,7 @@ Panel {
     interval: 1500
     repeat: true
     running: root.opened
-    onTriggered: if (!detailsProc.running) detailsProc.running = true
+    onTriggered: if (root.opened && !detailsProc.running) detailsProc.running = true
   }
 
   // Keep the bar icon honest while the panel is closed. A 5s poll is enough to
@@ -1030,7 +1048,7 @@ Panel {
     repeat: true
     running: !root.opened
     triggeredOnStart: true
-    onTriggered: if (!detailsProc.running) detailsProc.running = true
+    onTriggered: if (!root.opened && !barStatusProc.running) barStatusProc.running = true
   }
 
   Timer {
