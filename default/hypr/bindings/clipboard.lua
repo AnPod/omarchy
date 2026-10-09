@@ -33,23 +33,16 @@ local function active_window_is_terminal()
 end
 
 -- Codex 0.157+ binds Ctrl+C for in-TUI copy. Super+C normally synthesizes the
--- terminal clipboard chord (Ctrl+Insert); that never reaches Codex's handler.
--- Match class/title so both `omarchy-agent` and a bare `codex` in a terminal
--- keep universal copy working.
+-- terminal clipboard chord (Ctrl+Shift+C); that never reaches Codex's handler.
+-- Limit app copy to the dedicated `omarchy-agent` window class, shared by all
+-- agents, so ordinary terminal titles cannot trigger Ctrl+C.
 local function active_window_wants_app_copy()
   local window = hl.get_active_window()
   if not window then
     return false
   end
 
-  local haystack = string.lower(table.concat({
-    tostring(window.class or ""),
-    tostring(window.initialClass or ""),
-    tostring(window.title or ""),
-    tostring(window.initialTitle or ""),
-  }, "\0"))
-
-  return haystack:find("codex", 1, true) ~= nil
+  return window.class == "org.omarchy.agent"
 end
 
 local function universal_clipboard_shortcut(default_mods, default_key, terminal_mods, terminal_key)
