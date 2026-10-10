@@ -33,3 +33,24 @@ if grep -F 'skip-first-run-update-notification' "$ROOT/install/user/first-run/wi
 fi
 
 pass "first-run uses one lifecycle completion marker"
+
+# systemctl enables none of a list when one unit in it is unknown, so a unit
+# missing from a build must cost first-run only that unit.
+cat >"$mock_bin/systemctl" <<'SH'
+#!/bin/bash
+[[ $* != *omarchy-sleep-lock.service* ]] || exit 1
+printf '%s\n' "$*" >>"$OMARCHY_TEST_CALLS"
+SH
+cat >"$mock_bin/omarchy-hook-install" <<'SH'
+#!/bin/bash
+echo hook >>"$OMARCHY_TEST_CALLS"
+SH
+chmod +x "$mock_bin/systemctl" "$mock_bin/omarchy-hook-install"
+
+if PATH="$mock_bin:$PATH" OMARCHY_TEST_CALLS="$test_tmp/calls" bash "$ROOT/install/user/first-run/enable-user-units.sh"; then
+  fail "first-run reports a unit it could not enable"
+fi
+for expected in bt-agent.service omarchy-crash-watch.service hook; do
+  grep -Fq "$expected" "$test_tmp/calls" || fail "a unit missing from the build does not cost first-run $expected"
+done
+pass "a unit missing from the build costs first-run only that unit"

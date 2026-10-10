@@ -173,6 +173,19 @@ for source, destination, legacy in package_defaults:
   if destination and (source not in pkgbuild or destination not in pkgbuild):
     errors.append(f"PKGBUILD does not explicitly install {source} -> {destination}")
 
+# A user unit has to be on the machine before anything turns it on: shipped in
+# /usr/lib/systemd/user, or copied out of default/ by the command enabling it.
+scripts = [path.read_text(errors="ignore") for folder in ("bin", "install", "migrations")
+           for path in (root / folder).rglob("*") if path.is_file()]
+for unit in sorted(path.name for path in (root / "default/systemd/user").glob("*.service")):
+  if f"/usr/lib/systemd/user/{unit}" in pkgbuild:
+    continue
+  named = [text for text in scripts if unit in text]
+  if not any("default/systemd/user/" in text for text in named):
+    errors.append(f"PKGBUILD does not ship default/systemd/user/{unit} and no command installs it")
+  elif any("systemctl --user enable" in text and "default/systemd/user/" not in text for text in named):
+    errors.append(f"{unit} is enabled without being shipped by PKGBUILD or installed first")
+
 # Existing users have an absolute wants symlink to the old unit path, and the
 # migration that repoints it only runs for users who run an update -- the
 # opposite of who the notifier is for. Dropping this alias strands them.
