@@ -10,10 +10,10 @@ grep -Fq 'readonly property int revealPx: Math.round(root.revealExtent)' "$tray"
   fail "tray sizes the drawer from a single rounded reveal extent"
 
 # Collapsed width must follow revealExtent (0), not the full drawerExtent.
-if grep -Eq 'drawerBlockWidth: root\.allItems\.length > 0 \? expandIcon\.implicitWidth \+ root\.drawerExtent' "$tray"; then
+if grep -Eq 'drawerBlockWidth: .* \? expandIcon\.implicitWidth \+ root\.drawerExtent' "$tray"; then
   fail "horizontal tray still reserves the fully expanded drawer width while collapsed"
 fi
-if grep -Eq 'drawerBlockHeight: root\.allItems\.length > 0 \? expandIcon\.implicitHeight \+ root\.drawerExtent' "$tray"; then
+if grep -Eq 'drawerBlockHeight: .* \? expandIcon\.implicitHeight \+ root\.drawerExtent' "$tray"; then
   fail "vertical tray still reserves the fully expanded drawer height while collapsed"
 fi
 
