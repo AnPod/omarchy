@@ -61,5 +61,54 @@ Cloud environment ran with enforced restricted network policy. GitHub connector 
 
 Open PR discussions reviewed: #15108, #14691, #14688, #14416, #14324, #14298, #14297, #14270, #14268, #14266, #14264, #14263, #14262, #14210, #14211, #14128, #14116, #14115, #14114, #14023, #14022, #13925, #13924, #13910, #13909, #13908, #13685, #13681, #13679, #13680, #13676, #13675, #13672, #13670, #13669, #13668, #13667, #13666, #13665, #13663, #13664, #13662, #13660, #13659, #13658, #13657, #13656, #13654, #13653, #13652, #13651, #13649, #13648, #13646, #13644, #13642, #13638, #13637, #13636, #13634, #13633, #13632, #13631, #13629, #13630, #13628, #13625, #13624, #13623, #13622, #13620, #13619, #13616, #13615, #13614, #13613, #13612, #13610, #13609, #13608, #13607, #13606, #13605, #13604, #13603, #13602, #13601, #13600, #13598, #13482, #13480, #13479, #13476, #13475, #13474, #13473, #13472, #13471, #13470, #13469, #13468, #13467, #13466, #13462, #13460, #13459, #11581, #11578, #11574
 
-Issues screened by title/body: #14833, #10193, #14972, #12530, #11005, #13394, #12080, #15287, #11812, #15286, #14890, #6475, #14731, #15276, #8718, #15270, #11977, #15264, #11961, #13988, #13987, #13986, #13973, #13959, #13958, #13956, #13944, #13954, #13953, #13922, #13912, #13904, #12221, #13900, #13882, #13896, #13890, #13877, #15260, #13866, #13855, #12304, #15258, #13849, #13827, #13822, #13821, #12523, #13814, #10037, #13812, #13794, #13795, #13752, #13798, #13779, #13760, #13758, #13748, #13754
+Issues screened by title/body: #14833, #10193, #14972, #12530, #11005, #13394, #12080, #15287, #11812, #15286, #14890, #6475, #14731, #11977, #15276, #15270, #8718, #15264, #11961, #13988, #13987, #13986, #13973, #13959, #13958, #13956, #13944, #13954, #13953, #13922, #13912, #13904, #12221, #13900, #13882, #13896, #13890, #13877, #15260, #13866, #13855, #12304, #15258, #13849, #13827, #13822, #13821, #12523, #13814, #10037, #13812, #13794, #13795, #13752, #13798, #13779, #13760, #13758, #13748, #13754
 
+## 2026-10-13 — additional request: ten easy fixes with no PR
+
+Requested ten additional easy issues without an existing PR or active implementation. The quality and duplication requirements remain binding. Outcome: **0 qualifying new fixes submitted**, shortfall 10. No eligible issue was established from this screening; this does not claim every possible fix was exhaustively reproduced.
+
+Upstream rechecked: quattro remains 492b8837deea69663c7a5418871f07ed075a9686. Original checkout and all previous branches preserved. Reused cloud runtime/network instructions and the previously read contribution guides. Persistent log from the first run was reviewed first.
+
+### Discovery coverage
+
+- GitHub search returned 1,127 open issues matching `is:issue is:open -linked:pr`.
+- Retrieved 1127 distinct results using pages 1–10 plus a date-partitioned older query to avoid GitHub's 1,000-result ceiling. Screened titles/bodies for plausible low-effort command, installer, migration, configuration, and documentation defects. Hardware-dependent and large architectural reports were excluded from the easy-fix shortlist.
+- Inspected reports and issue timelines for 69 promising candidates, followed references, and searched open PRs by issue number and implementation keywords. The `-linked:pr` qualifier is not proof of no work: many reports link active fixes only in ordinary comments.
+- No code changes, fix branches, commits, tests, or new PRs were manufactured to reach ten. This run was discovery/source validation, not implementation verification.
+
+### Representative ranked screening (estimated effort before eligibility checks)
+
+| Rank | Issue | Difficulty | Eligibility result |
+| --- | --- | --- | --- |
+| 1 | #5406 — manual typo | Trivial | Already fixed in current manual source and released tags. |
+| 2 | #14574 — Ghostty background-color | Trivial | Shipped file has no offending key; maintainer asks about local modification. |
+| 3 | #14724 — Brave Origin native messaging | Easy | Current upstream registers Brave-Origin in both host installers. |
+| 4 | #14956 — numpad search input | Easy | Open fixes #8023 and #14662. |
+| 5 | #14838 — Lua stdin assertions | Easy | Open PR #7460 fixes the same REPL/error-status problem; reporter also offered follow-up work. |
+| 6 | #11283 — disabling unknown plugin | Easy | Open PR #11134; earlier report #11119 already has an implementation. |
+| 7 | #14075 — duplicate keyboard layouts | Easy | Open PR #14076. |
+| 8 | #11448 — DNS bridge/bond profile abort | Easy | Open PR #11476; live reproduction and verification already in that discussion. |
+| 9 | #14887 — AUR updatedb scan | Easy–medium | Open PR #15178 addresses remote mounts; further behavior change needs scope judgment. |
+| 10 | #14467 — OWE/LockFeed package conflict | Uncertain | Current package sources contradict the proposed simple removal; artifact/promotion investigation is necessary. Do not remove a required module speculatively. |
+
+### Important source findings / remaining blockers
+
+- #14467: current `omacom/omarchy-pkgs/pkgbuilds/owe/PKGBUILD` builds owe 0.2.10-4 through Meson. Tagged `omacom/owe/v0.2.10/meson.build` builds C render/daemon/CLI/test subdirectories, not qml-plugin. Separate `pkgbuilds/owe-lockfeed/PKGBUILD` builds 0.2.10-2 through CMake from qml-plugin and installs it separately. The current Omarchy base package list and migration asking for both are consistent with these sources. The issue's claim that the owe artifact owns the same QML files still needs artifact-level verification; no package artifact or real pacman transaction was tested. Removing owe-lockfeed without that evidence can remove the required QML module.
+- #14849: accepted diagnosis of qmllint binary/import-path documentation, but the reported guide is plugins.omarchy.org/develop.html and was not found in this repository. Fix must target the guide's source, which has not been resolved here; no new helper/interface was invented.
+- #11995: Inkscape chooser tiling is a plausible narrow rule fix with no PR found, but the reporter explicitly leaves the direction open and essential running-UI verification is unavailable in this cloud environment. Do not submit as ready.
+- #15084: ISO passphrase/history-expansion diagnosis is hypothetical. Current target-side luks-rekey code sends secrets through key files/process substitution; installation orchestration belongs to the ISO. Needs exact invocation and a real disposable install reproduction, not a blind set +H patch.
+- #11316: package corruption after interrupted extraction is a larger recovery/verification design problem, not an easy patch.
+- #10405: plugin ID migration needs an accepted identity/state migration contract, not a small opportunistic change.
+- #11757: Docker/resolved address collision is reproduced, but alternate-subnet/stub/removal/warning approaches await maintainer choice and overlap #11032.
+- #7153: Spotify wrapper lives in omarchy-pkgs; whitespace splitting is a format decision and breaks values with spaces. Blank/comment handling could be a separate packaging fix after scope is accepted.
+- #11233: theme backgrounds are deliberately read from staged snapshots; reading live directories or changing documentation awaits a maintainer decision.
+- #9305: usage text has open PR #13976; direct-binary help behavior is an unresolved CLI design choice.
+- #14623, #10117, #11399, #13179, #12821 and #12515 await clarification or fail to reproduce against upstream sources; do not claim these are ready bugs.
+- #14787, #14414, #13994, #11004, #11916, #14205, #14463, #8184 and #6992 are already fixed on upstream or the reported mechanism does not hold there.
+- #15198, #14429, #14086, #13122, #14069, #11628, #12029, #11992, #14833, #14197, #6053 and #8936 have existing related fixes/backports. Skip new implementation.
+
+Submission access remains as recorded in the prior run: Git transport can push to the fork, but upstream PR metadata writes through the connected integration returned 403, and CLI GraphQL returned Forbidden. No new PR creation was attempted because no verified qualifying patch existed.
+
+Next run: finish the previously blocked PR-description updates when permissions permit; revisit the Inkscape issue only with an accepted scope and graphical verification, and resolve the plugin-guide source if documentation work is desired. Do not repeat the skipped easy candidates above without checking for changed maintainer guidance.
+
+Deep-reviewed issue IDs: #14838, #14849, #14887, #14787, #14733, #14724, #14574, #14467, #14459, #15306, #14956, #15084, #14908, #14623, #15198, #14124, #13994, #14414, #14375, #14075, #14086, #14197, #13122, #12846, #5406, #13179, #14429, #14339, #14069, #12515, #14119, #11283, #9305, #7153, #6992, #8184, #11757, #10940, #11448, #12029, #11628, #11995, #11474, #11004, #11231, #11257, #10117, #8936, #9385, #9532, #11175, #11607, #11916, #11233, #8711, #6053, #5546, #5879, #4921, #14604, #14205, #12381, #10405, #11316, #11399, #11992, #14833, #14463, #12821.
