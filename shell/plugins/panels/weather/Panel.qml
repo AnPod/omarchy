@@ -1377,7 +1377,7 @@ Panel {
               Rectangle {
                 anchors.fill: parent
                 radius: Style.cornerRadius
-                color: dayMouse.containsMouse ? Style.hoverFillFor(root.bar.foreground, Color.accent) : "transparent"
+                color: dayMouse.containsMouse ? Style.hoverFillFor(root.bar.foreground, Commons.Color.accent) : "transparent"
               }
 
               MouseArea {
