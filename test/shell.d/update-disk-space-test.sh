@@ -307,6 +307,20 @@ pass "ESP sharing root uses the root check"
 write_stub findmnt '
 if [[ $* == *"-T /" ]]; then echo /dev/root; else echo /dev/esp; fi'
 # Permission errors must remain visible instead of looking like no UKIs exist.
+if (( EUID == 0 )); then
+  skip "unsearchable UKI parents require an unprivileged test user"
+else
+  for directory in "$esp_root/EFI" "$esp_root"; do
+    chmod 600 "$directory"
+    status=0
+    output=$(TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) OMARCHY_TEST_LIMINE_DEFAULT="$limine_default" TEST_ESP_AVAILABLE_BYTES=$floor_short_bytes run_requires_free_space 2>&1) || status=$?
+    chmod 755 "$directory"
+    (( status == 0 )) || fail "unsearchable UKI parent must warn and continue ($directory)" "$output"
+    [[ $output == *"Could not read UKI sizes"* ]] || fail "unsearchable UKI parent warns ($directory)" "$output"
+    [[ $output != *"You need at least"* ]] || fail "unsearchable UKI parent must not use the no-UKI floor" "$output"
+  done
+  pass "unsearchable UKI parents warn instead of appearing empty"
+fi
 write_stub find 'exit 1'
 output=$(TEST_AVAILABLE_BYTES=$((20 * 1024 * 1024 * 1024)) OMARCHY_TEST_LIMINE_DEFAULT="$limine_default" TEST_ESP_AVAILABLE_BYTES=$((1024 * 1024 * 1024)) run_requires_free_space 2>&1)
 [[ $output == *"Could not read UKI sizes"* ]] || fail "unreadable ESP warns" "$output"

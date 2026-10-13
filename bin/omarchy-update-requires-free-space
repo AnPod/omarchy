@@ -42,7 +42,14 @@ resolve_esp_path() {
 }
 
 esp_required_bytes() {
-  local esp_path=$1 sizes size largest=0 uki_count=0 kernel_count
+  local esp_path=$1 sizes size largest=0 uki_count=0 kernel_count directory
+  # An unsearchable parent hides EFI/Linux just like a missing directory.
+  for directory in "$esp_path" "$esp_path/EFI"; do
+    if [[ -d $directory && ! -x $directory ]]; then
+      echo "Could not read UKI sizes on $esp_path; check ESP free space before updating." >&2
+      return 1
+    fi
+  done
   if [[ -d $esp_path/EFI/Linux ]]; then
     if ! sizes=$(find "$esp_path/EFI/Linux" -maxdepth 1 -type f -name '*.efi' -printf '%s\n' 2>/dev/null); then
       echo "Could not read UKI sizes on $esp_path; check ESP free space before updating." >&2
