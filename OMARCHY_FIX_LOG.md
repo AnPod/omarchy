@@ -112,3 +112,46 @@ Submission access remains as recorded in the prior run: Git transport can push t
 Next run: finish the previously blocked PR-description updates when permissions permit; revisit the Inkscape issue only with an accepted scope and graphical verification, and resolve the plugin-guide source if documentation work is desired. Do not repeat the skipped easy candidates above without checking for changed maintainer guidance.
 
 Deep-reviewed issue IDs: #14838, #14849, #14887, #14787, #14733, #14724, #14574, #14467, #14459, #15306, #14956, #15084, #14908, #14623, #15198, #14124, #13994, #14414, #14375, #14075, #14086, #14197, #13122, #12846, #5406, #13179, #14429, #14339, #14069, #12515, #14119, #11283, #9305, #7153, #6992, #8184, #11757, #10940, #11448, #12029, #11628, #11995, #11474, #11004, #11231, #11257, #10117, #8936, #9385, #9532, #11175, #11607, #11916, #11233, #8711, #6053, #5546, #5879, #4921, #14604, #14205, #12381, #10405, #11316, #11399, #11992, #14833, #14463, #12821.
+
+## 2026-10-13 — scheduled 19:00 run (Europe/Berlin)
+
+Runtime reconfirmed through environment_status: current observations, running managed environment, enforced restricted networking. Reconfirmed actor AnPod, fork AnPod/omarchy, upstream omacom/omarchy, default branch quattro. Fetched upstream and the persistent log; upstream remains 492b8837. Read contribution instructions, latest AGENTS.md, shell-development/visual-verification guides, and SECURITY.md. The security defect addressed below was already publicly reported on the existing PR; no new vulnerability report or external message was sent.
+
+### Ranked eligible work: existing PR review feedback
+
+| Rank | Work | Difficulty | Rationale |
+| --- | --- | --- | --- |
+| 1 | Stack #11581 on #11574 | Easy | Fresh maintainer request on both PRs at 16:28 UTC. Original rain commits had identical trees but different IDs; ancestry can be corrected without changing the existing multi-city implementation. |
+| 2 | Stop executing weather cache metadata in #11574 | Medium | Public review identifies a concrete remote-data-to-shell boundary. Reproduced against the actual fetcher with stubbed HTTP responses; the fix and cache semantics can be verified headlessly. |
+
+### Completed work and submission
+
+- #11574: https://github.com/omacom/omarchy/pull/11574. Isolated worktree /workspace/omarchy-weather-security, local branch daily/weather-metadata-20261013. Merged latest upstream, then commit 9176395c replaces sourced metadata with validated JSON, checks decimal timestamp strings before arithmetic, and leaves Last-Modified as literal data. Old executable metadata is ignored and replaced after a successful fetch. Existing cache fixture updated; a focused actual-fetcher regression added. A trailing empty line in the touched rain test was removed so the whole PR diff passes diff --check. Pushed fork branch fm/omarchy-weather-upstream to 5c392b93631a9796d33c10d80a6d7847642d47de.
+- #11581: https://github.com/omacom/omarchy/pull/11581. Isolated worktree /workspace/omarchy-weather-stack, local branch daily/weather-stack-20261013. Verified original rain copies 85fa18af and 49594ef8 have the identical tree 120da51a611554cc48b736fa06d6160ce6b6a174; their subsequent Commons.Color fixes are identical. Resolved the ancestry merge using the existing multi-city files and proved its complete tree was unchanged. Carried the rain branch's latest upstream merge and JSON fix into this branch and updated multi-city cache seeds to JSON. Pushed fork branch fm/omarchy-weather-multicity-upstream to e4a2b280e38ca1861c05e9c9e434657e1a54bafa.
+- Current rain branch is an ancestor of the multi-city branch. met-fetch.sh is identical on both; remaining differences are the five multi-city implementation/test files. Upstream metadata reads confirmed both published PR heads after the pushes.
+- No new PR opened, PR merged, protected branch pushed, release published, or force-push performed. Original checkout and previous work preserved.
+
+### Actual verification
+
+- Old actual met-fetch.sh plus the new regression: exit 1, reporting that the remote Last-Modified executed on cache read. Fixed helper: all five regression groups passed. Groups cover inert command-substitution payloads, literal If-Modified-Since, HTTP 304 body preservation and backoff, Expires, invalid arithmetic/timestamp forms, and ignored legacy executable files. Uses a disposable cache and a curl stand-in, never user data.
+- Rain branch: weather-test.sh 57 checks passed; weather-rain-test.sh 101 passed; weather-met-fetch-test.sh five groups passed.
+- Multi-city branch: weather-test.sh 57 checks passed; weather-rain-test.sh 104 passed; weather-multicity-test.sh 106 passed; weather-met-fetch-test.sh five groups passed.
+- The first multi-city focused run failed because its existing test seeded shell metadata. That fixture was converted to JSON; the rerun passed, including Oslo/Tokyo cache separation. Do not claim the initial run passed.
+- Bash syntax checks and git diff --check upstream/quattro passed on both final branches. Ancestor checks passed.
+- Required ./test/all ran on both updated branches and returned 1: CLI and shell suites failed. Rain: 55/400 shell test files failed; multi-city: 55/401 failed. Both had skipped checks in 44 files. The failing-file set on each exactly matches the earlier untouched upstream 492b8837 run in this same environment (55/398 failures, 44 skipped files). No additional failing test file was found. That baseline was not rerun this iteration because upstream is unchanged. Missing dependencies and unchanged baseline failures remain; the aggregate suites did not pass.
+- Raw logs in this run's workspace: /workspace/run-weather-security-all.log and /workspace/run-weather-stack-all.log. These paths are ephemeral; the results above are the durable summary.
+- No running Omarchy UI, touchpad gesture, live weather-provider response, or graphical regression verification was established. This run verifies the metadata boundary, cache/model/persistence fixtures, and branch ancestry only. It does not establish readiness of the entire weather UI feature. Other reported fetcher reliability concerns, particularly invalid HTTP 200 bodies replacing a good forecast cache, remain follow-up work.
+
+### Prior feedback / new issues checked
+
+- Current #13908 already validates decimal resume offsets and /dev/... device names, with invalid-input and @-device fixtures. The prior log's suggested nit is already handled; do not implement it again.
+- #13603 already dropped the obsolete opacity properties. #14298 already contains signed-in-identity retention changes. #13675 already fixes rebuild retries/marker invalidation. No duplicate fixes made.
+- Reviewed latest own-PR listings and reread discussions for #13908, #13603, #14298, #13675, #11574, and #11581. Fresh weather stacking feedback was prioritized.
+- Recent #15329 (Steam/Proton idle inhibit): timeline has no PR reference, but open-PR search finds #15330 plus #9667 and #14201. Skip duplicate implementation.
+- Recent #15309 (Helium profile dialogs): no timeline entries; no eligible cloud-verified fix established. Needs graphical reproduction and narrow dialog matching. Preserve prior screening exclusions for other issues; no low-value new work invented.
+
+### Blockers / next run
+
+- Both actual replacement PR-description requests failed with GitHub API 403, Resource not accessible by integration. Code pushes succeeded, but upstream descriptions remain unchanged. Prepared complete descriptions with actual checks, limitations, and AI disclosure are saved in reports/2026-10-13-pr-11574.md and reports/2026-10-13-pr-11581.md. Publish when integration permissions allow; do not rerun implementation solely to update text.
+- App PR-attachment calls did not return results; additional bounded attempts timed out after five seconds for each PR. Attachment state could not be confirmed. PR URLs and published heads are recorded here.
+- Next priority: remaining actionable weather-fetcher review concerns (validate response before replacing good cache and preserve recovery behavior), then publish blocked descriptions. Real UI checks remain necessary for the original rain/multi-city features.
