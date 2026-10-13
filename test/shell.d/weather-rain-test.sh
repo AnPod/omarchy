@@ -329,4 +329,3 @@ jq -n --arg now "$now" '{meta_lat: "46.0500", meta_lon: "14.5100", last_fetch: $
 output=$("$WEATHER_DIR/met-fetch.sh" "46.05" "14.51" "$fetch_tmp/met" 2>/dev/null) || fail "weather MET fetcher serves a fresh cache without fetching" "$output"
 [[ $output == *'"status":"throttled"'* ]] || fail "weather MET fetcher reports the throttled cache" "$output"
 pass "weather MET fetcher serves a fresh cache without fetching"
-
