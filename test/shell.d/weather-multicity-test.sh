@@ -369,7 +369,8 @@ oslo_dir="$multicity_tmp/$oslo_sub"
 tokyo_dir="$multicity_tmp/$tokyo_sub"
 seed_met_cache() {
   mkdir -p "$1"
-  printf 'meta_lat="%s"\nmeta_lon="%s"\nlast_fetch="%s"\nexpires=""\nlast_modified=""\n' "$2" "$3" "$(date +%s)" >"$1/meta"
+  jq -n --arg lat "$2" --arg lon "$3" --arg now "$(date +%s)" \
+    '{meta_lat: $lat, meta_lon: $lon, last_fetch: $now, expires: "", last_modified: ""}' >"$1/meta"
   printf '{"city":"%s"}' "$4" >"$1/body.json"
   printf 'HTTP/1.1 200 OK\n' >"$1/headers.txt"
 }
