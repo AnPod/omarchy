@@ -325,7 +325,7 @@ pass "weather MET fetcher rejects bad coordinates"
 mkdir -p "$fetch_tmp/met"
 printf '{}' >"$fetch_tmp/met/body.json"
 now=$(date +%s)
-printf 'meta_lat="46.0500"\nmeta_lon="14.5100"\nlast_fetch="%s"\nexpires=""\nlast_modified=""\n' "$now" >"$fetch_tmp/met/meta"
+jq -n --arg now "$now" '{meta_lat: "46.0500", meta_lon: "14.5100", last_fetch: $now, expires: "", last_modified: ""}' >"$fetch_tmp/met/meta"
 output=$("$WEATHER_DIR/met-fetch.sh" "46.05" "14.51" "$fetch_tmp/met" 2>/dev/null) || fail "weather MET fetcher serves a fresh cache without fetching" "$output"
 [[ $output == *'"status":"throttled"'* ]] || fail "weather MET fetcher reports the throttled cache" "$output"
 pass "weather MET fetcher serves a fresh cache without fetching"
