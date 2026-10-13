@@ -40,8 +40,23 @@ last_modified=""
 meta_lat=""
 meta_lon=""
 if [[ -f "$meta" ]]; then
-  # shellcheck disable=SC1090
-  source "$meta" 2>/dev/null || true
+  # Headers are remote data. Never execute old shell-format cache metadata.
+  mapfile -t cached_meta < <(jq -er '
+    select(type == "object")
+    | select(.meta_lat | type == "string")
+    | select(.meta_lon | type == "string")
+    | select(.last_fetch | type == "string" and test("^(0|[1-9][0-9]{0,11})$"))
+    | select(.expires | type == "string" and (. == "" or test("^(0|[1-9][0-9]{0,11})$")))
+    | select(.last_modified | type == "string" and (test("[\r\n]") | not))
+    | [.meta_lat, .meta_lon, .last_fetch, .expires, .last_modified][]
+  ' "$meta" 2>/dev/null)
+  if (( ${#cached_meta[@]} == 5 )); then
+    meta_lat=${cached_meta[0]}
+    meta_lon=${cached_meta[1]}
+    last_fetch=${cached_meta[2]}
+    expires=${cached_meta[3]}
+    last_modified=${cached_meta[4]}
+  fi
 fi
 
 now=$(date +%s)
@@ -79,13 +94,10 @@ http_code=$(curl "${curl_args[@]}" -w "%{http_code}" "$url" 2>/dev/null) || http
 
 finish_meta() {
   # $1 = expires epoch or empty, $2 = last-modified string or empty
-  {
-    echo "meta_lat=\"$lat\""
-    echo "meta_lon=\"$lon\""
-    echo "last_fetch=\"$now\""
-    echo "expires=\"$1\""
-    echo "last_modified=\"$(json_escape "$2")\""
-  } >"$meta"
+  jq -n --arg lat "$lat" --arg lon "$lon" --arg last_fetch "$now" \
+    --arg expires "$1" --arg last_modified "$2" \
+    '{meta_lat: $lat, meta_lon: $lon, last_fetch: $last_fetch,
+      expires: $expires, last_modified: $last_modified}' >"$meta"
 }
 
 parse_header() {
