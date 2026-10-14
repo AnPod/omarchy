@@ -137,6 +137,25 @@ work="$accounts/claude/work"
 [[ $(stat -c %a "$work") == 700 && $(stat -c %a "$accounts/claude.json") == 600 ]] || fail "account homes and the registry are private"
 pass "an added account shares everything but its login with the primary"
 
+[[ $(readlink "$work/tasks") == "$HOME/.claude/tasks" ]] || fail "an added Claude account shares session tasks"
+mkdir -p "$HOME/.claude/tasks/session-1"
+printf '{"subject":"finish the fix"}\n' >"$HOME/.claude/tasks/session-1/1.json"
+cmp -s "$work/tasks/session-1/1.json" "$HOME/.claude/tasks/session-1/1.json" || fail "a resumed account sees the primary's task list"
+printf '{"subject":"verify the fix"}\n' >"$work/tasks/session-1/2.json"
+[[ -f $HOME/.claude/tasks/session-1/2.json ]] || fail "tasks written by the added account stay visible to the primary"
+pass "Claude accounts read and write the same session task list"
+
+# Existing account-owned data and links must never be replaced by sharing.
+mkdir -p "$test_tmp/custom/tasks" "$test_tmp/elsewhere"
+echo retained >"$test_tmp/custom/tasks/local"
+"$ROOT/bin/omarchy-agent-account-state" link claude "$test_tmp/custom"
+[[ ! -L $test_tmp/custom/tasks && $(cat "$test_tmp/custom/tasks/local") == retained ]] || fail "linking preserves an account's own task directory"
+mkdir -p "$test_tmp/linked"
+ln -s "$test_tmp/elsewhere" "$test_tmp/linked/tasks"
+"$ROOT/bin/omarchy-agent-account-state" link claude "$test_tmp/linked"
+[[ $(readlink "$test_tmp/linked/tasks") == "$test_tmp/elsewhere" ]] || fail "linking preserves an account's existing task symlink"
+pass "task sharing preserves existing account-owned directories and links"
+
 if OMARCHY_TEST_LOGIN_UUID=u-work OMARCHY_TEST_LOGIN_EMAIL=work@example.com \
   omarchy-agent-account-add claude Again </dev/null >"$test_tmp/dup-output" 2>&1; then
   fail "adding the same account twice fails"
@@ -210,7 +229,11 @@ pass "Grok accounts are added and used like the others"
 
 # ---------------------------------------------------------------------- routing
 
+# A pre-fix account with no task directory picks up sharing on its next use.
+rm "$work/tasks"
 omarchy-agent-account-use claude work >/dev/null
+[[ $(readlink "$work/tasks") == "$HOME/.claude/tasks" && -f $work/tasks/session-1/1.json ]] || fail "switching an existing account restores task sharing"
+pass "switching a pre-fix account links its missing task directory"
 [[ $(omarchy-agent-account-home claude) == "$work" ]] || fail "the active account's home is what launches use"
 grep -q "New Claude sessions now use Work Running sessions stay on" "$notifications" || fail "switching says where new sessions go"
 pass "use makes an account active and says so"
