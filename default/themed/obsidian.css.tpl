@@ -100,7 +100,7 @@
 
 /* Data Files Editor uses a standalone CodeMirror 6 view. */
 .datafile-source-view.mod-cm6 {
-  --datafile-active-line: {{ lighter_background }};
+  --datafile-active-line: color-mix(in srgb, var(--text-selection) 70%, var(--background-primary));
 }
 
 .datafile-source-view.mod-cm6 .cm-selectionLayer .cm-selectionBackground {
