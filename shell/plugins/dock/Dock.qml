@@ -47,6 +47,12 @@ Item {
   function entryForAppId(appId) {
     var entry = DesktopEntries.heuristicLookup(appId)
     if (entry) return entry
+    // Shipped web-app entries use Chromium's class, even when Edge opens
+    // the app. Keep exact matches first and preserve the URL/profile suffix.
+    if (/^msedge-.+_.+-.+$/.test(String(appId || ""))) {
+      entry = DesktopEntries.heuristicLookup("chrome-" + appId.slice("msedge-".length))
+      if (entry) return entry
+    }
     var id = DockModel.claimingEntryId(appId, root.terminalEntries)
     return id ? DesktopEntries.byId(id) : null
   }
