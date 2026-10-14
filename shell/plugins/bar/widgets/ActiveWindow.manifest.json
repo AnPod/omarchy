@@ -4,7 +4,7 @@
   "name": "Active window",
   "version": "1.0.0",
   "author": "Omarchy",
-  "description": "Title of the focused window",
+  "description": "Title of the focused window. Left-click to focus, middle-click to close.",
   "kinds": [
     "bar-widget"
   ],
@@ -13,7 +13,7 @@
   },
   "barWidget": {
     "displayName": "Active window",
-    "description": "Title of the focused window",
+    "description": "Title of the focused window. Left-click to focus, middle-click to close.",
     "category": "Compositor",
     "allowMultiple": false,
     "defaultSection": "left"
