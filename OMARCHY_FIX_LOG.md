@@ -155,3 +155,43 @@ Runtime reconfirmed through environment_status: current observations, running ma
 - Both actual replacement PR-description requests failed with GitHub API 403, Resource not accessible by integration. Code pushes succeeded, but upstream descriptions remain unchanged. Prepared complete descriptions with actual checks, limitations, and AI disclosure are saved in reports/2026-10-13-pr-11574.md and reports/2026-10-13-pr-11581.md. Publish when integration permissions allow; do not rerun implementation solely to update text.
 - App PR-attachment calls did not return results; additional bounded attempts timed out after five seconds for each PR. Attachment state could not be confirmed. PR URLs and published heads are recorded here.
 - Next priority: remaining actionable weather-fetcher review concerns (validate response before replacing good cache and preserve recovery behavior), then publish blocked descriptions. Real UI checks remain necessary for the original rain/multi-city features.
+
+## 2026-10-14 — managed-cloud run
+
+Environment status confirmed running/connected with current observations, source_config_id 84b6b0f3-31a3-40fb-b9f0-db7f079296e9~cecfg_6abe3c782d948192b4cbc28025733bbc, restricted networking enforced. Read the runtime skill and /etc/codex/network-policy.json before network commands. GitHub connector reconfirmed actor AnPod, fork AnPod/omarchy and canonical upstream omacom/omarchy, default quattro. Fetched upstream at 84cfb93959f4fe0bbb71de71593b36647d2ba78d (50-language integration). Read existing persistent log, current AGENTS.md, shell guide, contribution guide, docs/testing.md and .github/SECURITY.md. Original /workspace/omarchy work branch preserved.
+
+### Ranked eligible review work
+
+| Rank | Work | Difficulty | Rationale |
+| --- | --- | --- | --- |
+| 1 | Reject invalid HTTP 200 forecasts in #11574, carry into stacked #11581 | Medium | Existing public review gives reproducible cache-loss/backoff bug; actual fetch helper can be exercised headlessly with HTTP fixtures. Fix completed, publication blocked by existing feature's new i18n failure. |
+
+No new issue qualified this run. Prioritize existing review work over the daily target.
+
+### Implemented and preserved, not submitted as ready
+
+- Existing review: https://github.com/omacom/omarchy/pull/11574#issuecomment-5849587295, item 2. Invalid HTTP 200 previously overwrote the good forecast and wrote new throttle metadata.
+- Commit 44c715b7 preserves body, headers and metadata after an invalid response, deletes response temporaries and returns an error. jq slurps exactly one JSON document and checks the Feature/timeseries envelope with nonempty array and time/data entry types. This is basic structural validation, not a full provider schema validator. A valid subsequent response recovers immediately and normal throttling resumes.
+- Added actual-fetcher fixtures covering empty/HTML/broken JSON, null/wrong shape/empty timeseries/wrong entry types, multiple JSON documents, intact cache files, temporary cleanup, recovery and an invalid first fetch. Existing metadata-execution/304/Expires/timestamp checks remain.
+- Merged current upstream into isolated daily/weather-cache-20261014; followed its weather.fetching translation key in the existing structural test (6ae852d3). Isolated city branch daily/weather-stack-20261014 includes the rain branch as an ancestor and resolves two upstream translation merge conflicts while preserving city selection. The fetch helpers are identical; the remaining branch delta is the same five multi-city files.
+- Pushed preservation branches to the fork: https://github.com/AnPod/omarchy/tree/daily/weather-cache-20261014 and https://github.com/AnPod/omarchy/tree/daily/weather-stack-20261014. These are work in progress, not new upstream PRs. Original published weather PR branches were not changed.
+- A focused patch and durable full-suite comparison are stored at reports/2026-10-14-weather-cache.patch and reports/2026-10-14-verification.json.
+
+### Verification actually performed
+
+- New regression before the fix: failed at “invalid HTTP 200 must fail instead of replacing the cache”. The five earlier metadata groups passed first. No user cache or real provider was involved.
+- Final rain focused tests: weather-test.sh 57, weather-rain-test.sh 101, weather-met-fetch-test.sh 8 groups; all passed. Final city: 57, 104, 106 (weather-multicity), 8 respectively; all passed. bash -n and git diff --check upstream/quattro passed both, as did rain-ancestor check and helper byte comparison.
+- Initial post-upstream weather-rain focused checks failed because they searched for the untranslated fetching text. Updated the tests to use the new translation key and reran successfully. The initial city merge had two conflicts, resolved before final focused checks. Do not report those initial checks as passed.
+- ./test/all actually ran in each worktree and on untouched upstream 84cfb939; all returned 1, both CLI and shell suites failed. Baseline 61/419 shell files failed, 53 skipped files. Rain 63/421 failed, 52 skipped; city 61/422 failed, 52 skipped. Raw run logs are /workspace/20261014-omarchy-{baseline,weather-security,weather-stack}-all.log (ephemeral). Integration corrections were made while these aggregate commands were still running; focused checks above were repeated on final trees.
+- Additional rain failures versus baseline: i18n-test.sh and preinstalls-test.sh. Additional city failure: i18n-test.sh; baseline-only hermes-remove-test.sh. Both branch preinstalls checks passed on isolated recheck; aggregate failure said monologue was not shipped. Hermes difference is recorded, not declared resolved.
+- i18n failure is real: scripts/i18n-sync.py extract-scan finds the existing “Data: MET Norway, Open-Meteo” literal in each PR's Panel.qml. Untouched upstream has zero candidates and passes this check. This predates the cache patch but blocks the full PRs' integration with current upstream. No test disabled or fallback-key workaround added to hide it.
+- No live Omarchy UI or provider responses verified. Cloud networking does not allow api.met.no, and no graphical desktop was established. This run verifies helper/cache behavior only, not rain/multi-city UI readiness.
+
+### Feedback, issue screening and blockers
+
+- Reread weather discussions; no later implementation or new comments appeared after the prior run. Also checked fresh feedback for #13602, #13608, #13908, #14298 and #13675. Only #13608 gained fresh feedback: reviewer prefers competing #13468 and asks maintainer choice. Disputed migration change skipped, not reimplemented.
+- Reviewed latest open own PR listing and latest 15 unlinked open issues. #15453 Windows VM setgid removal has an empty timeline, but open-PR search finds existing #12264/#12046, so skipped. #15461 keyboard layout false HID events has a comment timeline and related active #15290, #9129, #12350/#6834, so skipped. Other latest graphical/hardware/package issues were not established as eligible cloud-verifiable work; no exhaustive new-issue qualification claimed. #12952 bounds stock provider transfers, not this new MET helper's response-to-cache validation; no duplicate new PR created.
+- No upstream PR opened or updated, no merge/auto-merge/release/protected upstream push/force-push. Preservation-only fork pushes succeeded. Existing PRs remain https://github.com/omacom/omarchy/pull/11574 and https://github.com/omacom/omarchy/pull/11581.
+- App attachment calls for both reviewed PRs did not return and were terminated; attachment state unconfirmed.
+- Earlier upstream-description 403 blocker remains in prior entries; no metadata write attempted this run because the new work was not submitted as ready.
+- Next run: first resolve the provider-credit localization/catalog integration against the project's i18n workflow, then rerun required suites on final untouched branch trees and publish the preserved cache fix to the existing stacked PRs only when adequately verified. Remaining timezone/partial totals/city lifecycle reviews still need investigation and appropriate UI checks. Preserve previous issue exclusions; do not invent easy work to meet a quota.
