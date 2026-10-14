@@ -24,7 +24,11 @@ while (( $# )); do
   esac
 done
 printf 'HTTP/1.1 %s\r\nLast-Modified: %s\r\n\r\n' "${TEST_HTTP_CODE:-200}" "$TEST_LAST_MODIFIED" >"$headers"
-printf '{"type":"Feature","properties":{"timeseries":[]}}\n' >"$body"
+if [[ -n ${TEST_BODY_FILE:-} ]]; then
+  cp "$TEST_BODY_FILE" "$body"
+else
+  printf '{"type":"Feature","properties":{"timeseries":[{"time":"2026-10-14T00:00:00Z","data":{"instant":{"details":{"air_temperature":12}}}}]}}\n' >"$body"
+fi
 printf '%s' "${TEST_HTTP_CODE:-200}"
 SH
 chmod +x "$work/bin/curl"
@@ -85,3 +89,51 @@ fetch >"$work/output"
 [[ ! -e $marker && $(requests) == $((before + 1)) ]] || fail "legacy shell metadata must be ignored"
 jq -e '.meta_lat == "46.0500" and .meta_lon == "14.5100"' "$work/cache/meta" >/dev/null || fail "legacy metadata is replaced by JSON"
 pass "legacy shell metadata is refreshed without execution"
+
+# A bad HTTP 200 must not discard the forecast or postpone recovery.
+jq '.last_fetch = "0" | .expires = ""' "$work/cache/meta" >"$work/meta"
+mv "$work/meta" "$work/cache/meta"
+cp "$work/cache/meta" "$work/original-meta"
+cp "$work/cache/body.json" "$work/original-body"
+cp "$work/cache/headers.txt" "$work/original-headers"
+for invalid in '' '<html>upstream error</html>' '{' 'null' '{}' \
+  '{"type":"Feature","properties":{"timeseries":[]}}' \
+  '{"type":"Feature","properties":{"timeseries":{}}}' \
+  '{"type":"Feature","properties":{"timeseries":[null]}}' \
+  '{"type":"Feature","properties":{"timeseries":[{"time":7,"data":{}}]}}' \
+  "$(cat "$work/original-body") {}"; do
+  printf '%s' "$invalid" >"$work/response"
+  before=$(requests)
+  if TEST_BODY_FILE="$work/response" fetch >"$work/output"; then
+    fail "invalid HTTP 200 must fail instead of replacing the cache"
+  fi
+  [[ $(requests) == $((before + 1)) ]] || fail "invalid response must not throttle the next attempt"
+  jq -e '.status == "error" and .cached == true and .reason == "invalid forecast"' "$work/output" >/dev/null || fail "invalid response reports cached fallback"
+  for file in body.json meta headers.txt; do
+    case "$file" in
+      body.json) original=original-body ;;
+      meta) original=original-meta ;;
+      headers.txt) original=original-headers ;;
+    esac
+    cmp -s "$work/$original" "$work/cache/$file" || fail "invalid response must preserve $file"
+  done
+  [[ ! -e $work/cache/body.json.tmp && ! -e $work/cache/headers.txt.tmp ]] || fail "invalid response cleans temporary files"
+done
+pass "invalid HTTP 200 responses preserve the complete cache and allow recovery"
+
+before=$(requests)
+fetch >"$work/output"
+[[ $(requests) == $((before + 1)) ]] || fail "valid response immediately recovers after rejection"
+jq -e '.status == "ok"' "$work/output" >/dev/null || fail "valid forecast is accepted"
+fetch >"$work/output"
+[[ $(requests) == $((before + 1)) ]] || fail "successful recovery restores throttling"
+pass "valid forecast recovers immediately and restores normal backoff"
+
+rm -f "$work/cache/body.json" "$work/cache/meta" "$work/cache/headers.txt"
+printf 'not JSON' >"$work/response"
+if TEST_BODY_FILE="$work/response" fetch >"$work/output"; then
+  fail "invalid first response must fail"
+fi
+jq -e '.status == "error" and .cached == false' "$work/output" >/dev/null || fail "invalid first response reports no cached fallback"
+[[ ! -e $work/cache/body.json && ! -e $work/cache/meta && ! -e $work/cache/headers.txt ]] || fail "invalid first response creates no cache"
+pass "invalid first response leaves no forecast or throttle metadata"
