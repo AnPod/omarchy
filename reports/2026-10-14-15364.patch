@@ -1,0 +1,65 @@
+diff --git a/shell/plugins/dock/Dock.qml b/shell/plugins/dock/Dock.qml
+index 949156a9..c5953f6d 100644
+--- a/shell/plugins/dock/Dock.qml
++++ b/shell/plugins/dock/Dock.qml
+@@ -47,6 +47,12 @@ Item {
+   function entryForAppId(appId) {
+     var entry = DesktopEntries.heuristicLookup(appId)
+     if (entry) return entry
++    // Shipped web-app entries use Chromium's class, even when Edge opens
++    // the app. Keep exact matches first and preserve the URL/profile suffix.
++    if (/^msedge-.+_.+-.+$/.test(String(appId || ""))) {
++      entry = DesktopEntries.heuristicLookup("chrome-" + appId.slice("msedge-".length))
++      if (entry) return entry
++    }
+     var id = DockModel.claimingEntryId(appId, root.terminalEntries)
+     return id ? DesktopEntries.byId(id) : null
+   }
+diff --git a/test/shell.d/dock-test.sh b/test/shell.d/dock-test.sh
+index c6451370..ede36cc7 100755
+--- a/test/shell.d/dock-test.sh
++++ b/test/shell.d/dock-test.sh
+@@ -12,6 +12,43 @@ trap 'rm -rf "$TMPDIR"' EXIT
+ ROOT="$ROOT" run_node_test <<'JS'
+ const dock = requireFromRoot('shell/plugins/dock/DockModel.js')
+ 
++// Run the QML lookup method with a desktop-entry stand-in. This covers its
++// ordering as well as the resulting pinned/running model, without Qt.
++const fs = require('fs')
++const source = fs.readFileSync(path.join(root, 'shell/plugins/dock/Dock.qml'), 'utf8')
++const lookupMethod = source.match(/function entryForAppId\(appId\) \{([\s\S]*?)\n  \}/)
++assert(lookupMethod, 'dock desktop-entry lookup method is present')
++const entryForAppId = new Function('appId', 'DesktopEntries', 'DockModel', 'root', lookupMethod[1])
++const xClass = fs.readFileSync(path.join(root, 'applications/X.desktop'), 'utf8').match(/^StartupWMClass=(.+)$/m)[1]
++const xEntry = { id: 'X', noDisplay: false }
++const lookupCalls = []
++const desktopEntries = {
++  heuristicLookup: id => { lookupCalls.push(id); return id === xClass ? xEntry : null },
++  byId: id => id === 'nvim' ? { id: 'nvim' } : null
++}
++const lookup = (id, entries = desktopEntries, terminals = []) => entryForAppId(id, entries, dock, { terminalEntries: terminals })
++const edgeClass = xClass.replace(/^chrome-/, 'msedge-')
++assertEqual(lookup(edgeClass), xEntry, 'Edge web app resolves to its shipped desktop entry')
++assertDeepEqual(lookupCalls, [edgeClass, xClass], 'dock retries the reported Edge web-app class with the Chromium prefix')
++const resolved = lookup(edgeClass)
++const matchedItems = dock.buildItems(['X'], [{ key: resolved.id, hasEntry: !resolved.noDisplay, workspaceId: 3, id: 42 }])
++assertEqual(matchedItems[0].windows.length, 1, 'a pinned Edge web app retains its running window')
++const nativeEntry = { id: 'edge-specific' }
++assertEqual(lookup(edgeClass, { heuristicLookup: () => nativeEntry }), nativeEntry, 'an exact browser-specific entry wins over the fallback')
++assertEqual(lookup(xClass), xEntry, 'Chromium web-app matching is unchanged')
++lookupCalls.length = 0
++assertEqual(lookup('msedge'), null, 'a regular Edge browser window does not become a web app')
++assertDeepEqual(lookupCalls, ['msedge'], 'the Edge browser gets no Chromium lookup')
++assertEqual(lookup('msedge-unrelated'), null, 'an unrelated Edge-prefixed class is not rewritten')
++assertEqual(lookup('brave-x.com__-Default'), null, 'unverified browser prefixes are not guessed')
++assertEqual(lookup('msedge-missing.test__-Default'), null, 'an absent web-app entry stays absent')
++lookupCalls.length = 0
++lookup('msedge-x.com__-Profile_1')
++assertDeepEqual(lookupCalls, ['msedge-x.com__-Profile_1', 'chrome-x.com__-Profile_1'], 'fallback preserves the entire URL and profile suffix')
++assertEqual(lookup('org.omarchy.nvim', desktopEntries, [
++  { id: 'nvim', command: ['nvim'], runInTerminal: true }
++]).id, 'nvim', 'terminal-app entry fallback remains available')
++
+ assertEqual(dock.normalizePosition('left'), 'left', 'dock accepts a valid position')
+ assertEqual(dock.normalizePosition(' Top '), 'top', 'dock reads a position loosely')
+ assertEqual(dock.normalizePosition('diagonal'), 'bottom', 'dock falls back to the bottom')

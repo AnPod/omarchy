@@ -208,3 +208,38 @@ Discovery only; no implementation or PR created. Screened titles from the curren
 Excluded apparent easy items: #14454 bar on/off has #7023/#13670/#14395; #14083 Voxtype sudo has #12901/#13508; #14048 Sunshine has #12472/#12358; #14406 stuck OSD now has #15475 and older competing fixes; #15470 tray-height overlaps #10657; #8921 custom DoT has #6513/#7062/#9454; #15456 Bluetooth autoconnect names #12829 and overlaps #15138; #7845 screenshot early-exit has fork PR AnPod/omarchy#94 and needs packaging scope; #11375 plugin-site command reported fixed; #9530 manual/release skew awaits maintainer release-policy decision; #8120 argv[0] cannot be repaired by the proposed shell wrapper, not easy; #15479 AUR TUI currently lacks a diagnosed cause, so difficulty unknown. #13986 custom browser rejection has nuanced overlapping launcher PRs; do not treat it as an unclaimed easy change.
 
 Recommend #15437 first. #15364 is a backup investigation, not a cloud-ready fix. No defensible larger batch of genuinely easy, unclaimed fixes was established; do not pad with the exclusions above. Recheck timelines and open PRs immediately before implementation/submission.
+
+## 2026-10-14 — implement both shortlisted issues
+
+User requested both #15437 and #15364. Runtime skill/networking reference reread, current environment status confirmed running/connected with current observations, enforced restricted networking and the configured source ID (spec revision 33). /etc/codex/network-policy.json confirms restricted HTTP/no VPN. Reconfirmed AnPod, fork AnPod/omarchy, upstream omacom/omarchy, quattro. Fetched upstream (still 84cfb939) and persistent log; prior feedback already reviewed earlier today. Read current AGENTS.md, command metadata, shell development and visual-verification guides and existing contribution/testing guidance. Isolated both worktrees from upstream; original checkout and prior branches preserved.
+
+| Rank | Issue | Difficulty | Outcome |
+| --- | --- | --- | --- |
+| 1 | https://github.com/omacom/omarchy/issues/15437 | Easy | Fixed and cloud verified; upstream PR creation blocked by integration/CLI permissions. |
+| 2 | https://github.com/omacom/omarchy/issues/15364 | Easy–medium | Fixed with headless lookup/model regression coverage; preserved pending required live dock verification. |
+
+### Changes and preserved branches
+
+- #15437: /workspace/omarchy-15437, fix/claude-shared-tasks-15437, commit 8f557b1d5906d25e1334eda5c4beeb550cc26f52. Add tasks to Claude's existing shared_dirs. New accounts share task lists; older accounts missing tasks receive the link on use. Existing account-owned directories and symlinks are intentionally retained, not merged or overwritten. Regression uses actual account add/use/link helpers with a mock login and disposable homes, checks shared read/write, missing-directory upgrade and preservation of own data/links.
+- Published branch https://github.com/AnPod/omarchy/tree/fix/claude-shared-tasks-15437. Prepared upstream PR body: reports/2026-10-14-pr-15437.md, includes Fixes #15437, exact checks/limitations and Codex disclosure.
+- #15364: /workspace/omarchy-15364, fix/edge-webapp-dock-15364, commit 2f1858e623f9d8a7b6949fd996de52fe90e1d4f8. After an exact DesktopEntries lookup fails, retry only an Edge web-app-shaped class with chrome- replacing msedge-. Keep the URL/profile suffix and existing terminal lookup. No guessed Brave/Opera/Vivaldi/Helium mappings. Test executes the actual QML lookup method with desktop-entry stand-ins and feeds its result to the dock model; the shipped X.desktop supplies the expected class.
+- Published preservation branch https://github.com/AnPod/omarchy/tree/fix/edge-webapp-dock-15364. Desktop test procedure saved at reports/2026-10-14-edge-verification-needed.md. No upstream PR attempted for this branch; it is not declared ready.
+- Focused patches saved at reports/2026-10-14-15437.patch and reports/2026-10-14-15364.patch. No protected upstream push, force-push, PR merge/auto-merge or release action.
+
+### Verification actually run
+
+- Before changes, agent-account-test.sh failed the new missing-task-link assertion; dock-test.sh failed the new Edge desktop-entry lookup assertion (actual null). Both reproduce the source/helper behavior headlessly, not live provider applications.
+- Fixed Claude focused suites: agent-account-test.sh 31 checks, agent-account-autoswitch-test.sh 14, agent-account-copy-test.sh 6, agent-account-recovery-test.sh 4; all passed. Python AST parsing, test Bash syntax and git diff --check (including upstream base) passed.
+- Fixed Edge dock-test.sh 52 checks passed. Includes exact-match precedence, running pinned web app, unchanged Chromium lookup, ordinary Edge window, unrelated classes, unverified prefixes, absent entries, retained profile suffix and terminal fallback. Bash syntax and git diff --check upstream/quattro passed. No actual QML runtime/compiler or DesktopEntries engine was exercised.
+- Required ./test/all ran on each final tree and returned 1: CLI and shell suites failed. Claude 64/419 shell files failed, Edge 62/419 failed; both 53 skipped files. Compared to the earlier same-day untouched upstream 84cfb939 run (61/419 failures, 53 skips). The baseline was not rerun for these patches because source is unchanged.
+- Additional Claude failures: launch-shell-test.sh, menu-images-test.sh and update-hook-security-test.sh. Each passed on isolated rerun. Additional Edge failure: emojis-test.sh (temporary fixture path missing); passed on isolated rerun. Remaining failing-file sets match the earlier baseline. Aggregate suites did not pass; do not claim otherwise.
+- Summary reports/2026-10-14-two-fixes-verification.json. Raw aggregate logs /workspace/15437-test-all.log and /workspace/15364-test-all.log; isolated logs /workspace/15437-recheck-{launch-shell,menu-images,update-hook-security}.log and /workspace/15364-recheck-emojis.log. Raw paths ephemeral; durable summary above.
+- No real Claude sign-in/TaskList call was run; issue reporter supplied the live reproduction. Claude filesystem-sharing helper behavior is verified. No Hyprland, Quickshell or Edge binaries are installed in this Debian cloud; essential dock/browser UI checks are unavailable. agents/skills/visual-verification.md explicitly requires running-UI verification for visual effects; preserve Edge work rather than submit it as ready.
+
+### Submission and next steps
+
+Immediately before submission, reread both timelines and searched open PRs by issue numbers plus shared_dirs and dock/msedge. #15437 still has no timeline entries; #15364 only the reporter's proposed approach. No matching PR found or implementation claim introduced.
+
+- Attempted create upstream Claude PR with prepared body and head AnPod:fix/claude-shared-tasks-15437, base quattro, title “Share Claude session tasks across subscription accounts”. Connected GitHub API returned 403 Resource not accessible by integration. Normal CLI fallback `gh pr create ... --body-file /workspace/15437-pr-body.md` returned `Post "https://api.github.com/graphql": Forbidden`. No PR created; both fork pushes succeeded. No credential replacement, login flow or network bypass attempted.
+- No new/updated PR exists to attach for this implementation run. App attachment problems from previous reviews remain recorded earlier.
+- Next: publish the prepared Claude PR when upstream write authorization works; do not redo implementation. Verify Edge on a real Omarchy desktop using the saved procedure, particularly pinned/unpinned X, exact-match precedence, normal Edge/Chromium windows and profiles, then recheck competing PRs and submit only after that verification succeeds. Other existing weather work remains preserved separately.

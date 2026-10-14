@@ -1,0 +1,30 @@
+{
+  "15437": {
+    "failed": 64,
+    "total": 419,
+    "skipped": 53,
+    "extra_failures": [
+      "test/shell.d/launch-shell-test.sh",
+      "test/shell.d/menu-images-test.sh",
+      "test/shell.d/update-hook-security-test.sh"
+    ],
+    "baseline_only": [],
+    "isolated_recheck_passed": [
+      "launch-shell-test.sh",
+      "menu-images-test.sh",
+      "update-hook-security-test.sh"
+    ]
+  },
+  "15364": {
+    "failed": 62,
+    "total": 419,
+    "skipped": 53,
+    "extra_failures": [
+      "test/shell.d/emojis-test.sh"
+    ],
+    "baseline_only": [],
+    "isolated_recheck_passed": [
+      "emojis-test.sh"
+    ]
+  }
+}
