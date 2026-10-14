@@ -44,6 +44,15 @@ The full manual can be found via `man fd`.
 
 The full manual can be found via `man bat`.
 
+Omarchy colors man pages with bat, which strips terminal hyperlinks. To read a page with the standard pager and preserve the links groff emits, run:
+
+```bash
+env -u MANPAGER -u MANROFFOPT man ls
+```
+
+To use that pager for all man pages in your shell, add `unset MANPAGER MANROFFOPT` to `~/.bashrc` after Omarchy's shell setup. Link activation depends on your terminal's hyperlink support.
+
+
 ## tldr
 
 [tldr](https://tldr.sh/) is the antidote to man pages that open with three screens of history before showing you a single example. `tldr tar` gives you the handful of invocations you actually wanted.
