@@ -154,8 +154,8 @@ as a `busctl` option; the summary/body themselves are never parsed as options.)
   used by the first-run toasts once their action has been clicked.
 - `omarchy-notification-time` / `-battery` — the hotkey notices: one-line
   low-urgency glyph toasts wrapping `date` and `omarchy-battery-status`.
-- `omarchy-notification-weather` — despite the name, not a sender: it toggles
-  the `omarchy.weather` shell panel.
+- `omarchy-toggle-weather` — toggles the `omarchy.weather` shell panel. The old
+  `omarchy-notification-weather` name remains as a hidden compatibility command.
 
 Keybindings live in `default/hypr/bindings/utilities.lua`: `Super+comma`
 variants map to the IPC methods `dismissOne`, `dismissAll`, `invokeLast`,
