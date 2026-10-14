@@ -159,11 +159,17 @@ Panel {
   readonly property int refreshMinutes: Math.max(1, parseInt(setting("refreshMinutes", 15), 10) || 15)
 
   readonly property string reportLocation:  configuredLocation || wttrLocation || (areaInfo && areaInfo.areaName && areaInfo.areaName[0] ? areaInfo.areaName[0].value : "")
-  readonly property string reportTempNum:   current ? String(useImperial ? current.temp_F : current.temp_C) : ""
+  readonly property string reportTempNum:   current ? displayNumber(useImperial ? current.temp_F : current.temp_C) : ""
   readonly property string tempUnit:        "°" + (useImperial ? "F" : "C")
   readonly property string reportFeels:     current ? formatTemp(useImperial ? current.FeelsLikeF : current.FeelsLikeC) : ""
-  readonly property string reportWind:      current ? (useImperial ? (current.windspeedMiles + " mph") : (current.windspeedKmph + " km/h")) : ""
-  readonly property string reportHumidity:  current ? (current.humidity + "%") : ""
+  readonly property string reportWind:      current ? (useImperial ? (displayNumber(current.windspeedMiles) + " mph") : (displayNumber(current.windspeedKmph) + " km/h")) : ""
+  readonly property string reportHumidity:  current ? (displayNumber(current.humidity) + "%") : ""
+
+  // The report's numbers arrive as strings ("13"), and blank when missing.
+  function displayNumber(value) {
+    if (value === undefined || value === null || value === "") return ""
+    return Commons.I18n.formatNumber(value)
+  }
 
   function refresh() {
     // Each full refresh cycle gets a fresh retry budget, so an earlier
@@ -384,16 +390,17 @@ Panel {
   }
 
   function formatTemp(value) {
-    return Model.formatTemp(value, useImperial)
+    return Model.formatTemp(value, useImperial, Commons.I18n.formatNumber)
   }
 
   function dayName(dateString) {
-    return Model.dayName(dateString, function(date) { return Qt.formatDate(date, "dddd") })
+    var locale = Qt.locale(Commons.I18n.formatLocale)
+    return Model.dayName(dateString, function(date) { return locale.standaloneDayName(date.getDay(), Locale.LongFormat) })
   }
 
   // Bare degree value (no unit letter), used in the forecast row.
   function bareTempForDay(day, kind) {
-    return Model.bareTempForDay(day, kind, useImperial)
+    return Model.bareTempForDay(day, kind, useImperial, Commons.I18n.formatNumber)
   }
 
   // Representative icon for a forecast day: the hourly entry nearest noon.
@@ -685,6 +692,9 @@ Panel {
           Row {
             anchors.verticalCenter: parent.verticalCenter
             spacing: Style.space(2)
+            // A reading and its unit ("13 °C") stay in that order in a
+            // right-to-left layout too, the way bidi text keeps them.
+            LayoutMirroring.enabled: false
 
             Text {
               id: tempBig
@@ -754,7 +764,7 @@ Panel {
               id: locationField
               width: Style.space(190)
               enabled: !root.savingLocation
-              placeholderText: "Search city"
+              placeholderText: Commons.I18n.t("weather.searchCity")
               foreground: root.bar.foreground
               font.family: root.bar.fontFamily
 
@@ -821,7 +831,8 @@ Panel {
             Column {
               spacing: Style.space(5)
               Text {
-                text: "FEELS"
+                text: Commons.I18n.t("weather.feels")
+                textFormat: Text.PlainText
                 color: Qt.darker(root.bar.foreground, 1.5)
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -839,7 +850,8 @@ Panel {
             Column {
               spacing: Style.space(5)
               Text {
-                text: "WIND"
+                text: Commons.I18n.t("weather.wind")
+                textFormat: Text.PlainText
                 color: Qt.darker(root.bar.foreground, 1.5)
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -857,7 +869,8 @@ Panel {
             Column {
               spacing: Style.space(5)
               Text {
-                text: "HUMID"
+                text: Commons.I18n.t("weather.humid")
+                textFormat: Text.PlainText
                 color: Qt.darker(root.bar.foreground, 1.5)
                 font.family: root.bar.fontFamily
                 font.pixelSize: Style.font.bodySmall
@@ -930,7 +943,8 @@ Panel {
 
       Text {
         visible: !root.current
-        text: "Fetching forecast…"
+        text: Commons.I18n.t("weather.fetching")
+        textFormat: Text.PlainText
         color: Qt.darker(root.bar.foreground, 1.5)
         font.family: root.bar.fontFamily
         font.pixelSize: Style.font.bodySmall
