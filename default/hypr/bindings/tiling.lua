@@ -72,6 +72,8 @@ o.bind("SUPER + mouse_up", "Scroll active workspace backward", hl.dsp.focus({ wo
 
 o.bind("SUPER + mouse:272", "Move window", hl.dsp.window.drag(), { mouse = true })
 o.bind("SUPER + mouse:273", "Resize window", hl.dsp.window.resize(), { mouse = true })
+-- A left-button drag also works on touchpads without a holdable right click.
+o.bind("SUPER + ALT + mouse:272", "Resize window", hl.dsp.window.resize(), { mouse = true })
 
 o.bind("SUPER + G", "Toggle window grouping", hl.dsp.group.toggle())
 o.bind("SUPER + ALT + G", "Move active window out of group", hl.dsp.window.move({ out_of_group = true }))
