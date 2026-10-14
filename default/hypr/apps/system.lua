@@ -19,6 +19,13 @@ o.window({
   title = "^(Open.*Files?|Open [F|f]older.*|Save.*Files?|Save.*As|Save|All Files|.*wants to [open|save].*|[C|c]hoose.*)",
 }, { tag = "+floating-window" })
 
+-- Inkscape uses an in-process GTK chooser rather than the desktop portal.
+-- Match its dialog titles without floating document windows ending in Inkscape.
+o.window({
+  class = "^org\\.inkscape\\.Inkscape$",
+  title = "^(Select .* to (import|open|save).*|Open [Ff]ile.*|Save a Copy.*|.* bitmap image import|.*(Input|Output))$",
+}, { tag = "+floating-window" })
+
 -- The About fastfetch layout needs more columns than the standard float provides.
 -- This size only covers the first launch: omarchy-launch-about measures the
 -- rendered content, remembers the size that hugs it, and applies that as its own
