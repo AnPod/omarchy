@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# omarchy:summary=Edit a screenshot and close after saving and copying
+# omarchy:args=<image-path>
+# omarchy:hidden=true
+
+if (( $# != 1 )) || [[ ! -f $1 || ! -r $1 ]]; then
+  echo "Usage: omarchy capture edit <image-path>" >&2
+  exit 1
+fi
+
+exec tensaku \
+  --filename "$1" \
+  --output-filename "$1" \
+  --actions-on-enter save-to-clipboard \
+  --save-after-copy \
+  --copy-command wl-copy \
+  --early-exit

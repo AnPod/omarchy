@@ -277,12 +277,12 @@ printf '%s\n' "$1" >"$EDITOR_PATH_OUT"
 cat "$1" >"$EDITOR_TEXT_OUT"
 SH
 
-cat >"$TMPDIR/bin/tensaku-edit" <<'SH'
+cat >"$TMPDIR/bin/omarchy-capture-edit" <<'SH'
 #!/bin/bash
 printf '%s\n' "$*" >"$TENSAKU_OUT"
 SH
 
-chmod +x "$TMPDIR/bin/wl-copy" "$TMPDIR/bin/wl-paste" "$TMPDIR/bin/wtype" "$TMPDIR/bin/omarchy-launch-browser" "$TMPDIR/bin/omarchy-launch-editor" "$TMPDIR/bin/tensaku-edit"
+chmod +x "$TMPDIR/bin/wl-copy" "$TMPDIR/bin/wl-paste" "$TMPDIR/bin/wtype" "$TMPDIR/bin/omarchy-launch-browser" "$TMPDIR/bin/omarchy-launch-editor" "$TMPDIR/bin/omarchy-capture-edit"
 
 capture_output=$(XDG_RUNTIME_DIR="$TMPDIR" XDG_STATE_HOME="$TMPDIR/state" PATH="$TMPDIR/bin:$PATH" "$ROOT/shell/plugins/clipboard/capture.sh")
 [[ $capture_output == '{"type":"text","text":"terminal copy"}' ]] || fail "clipboard capture records normal text events"
