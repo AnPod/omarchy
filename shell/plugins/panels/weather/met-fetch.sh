@@ -106,6 +106,22 @@ parse_header() {
 
 case "$http_code" in
   200)
+    # Do not replace a good cache or back off after an invalid response.
+    # Slurp so a JSON stream cannot pass as one forecast document.
+    if ! jq -se '
+      length == 1 and (.[0] | type == "object" and .type == "Feature"
+        and (.properties.timeseries | type == "array" and length > 0
+          and all(.[]; type == "object" and (.time | type == "string")
+            and (.data | type == "object"))))
+    ' "$tmp_body" >/dev/null 2>&1; then
+      rm -f "$tmp_body" "$tmp_headers"
+      if [[ -f $body ]]; then
+        echo '{"status":"error","http_code":200,"reason":"invalid forecast","cached":true}'
+      else
+        echo '{"status":"error","http_code":200,"reason":"invalid forecast","cached":false}'
+      fi
+      exit 1
+    fi
     new_expires=""
     exp_str=$(parse_header "Expires")
     if [[ -n "$exp_str" ]]; then
