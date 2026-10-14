@@ -18,6 +18,14 @@ You start 1Password with `Super + Shift + /`. If it isn't installed yet, that ho
 
 You start Spotify using `Super + Shift + M`. Like 1Password, the hotkey kicks off the installation first if Spotify isn't installed yet (or use _Install > Service > Spotify_ from the Omarchy menu).
 
+If you customize Spotify's startup flags in `~/.config/spotify-flags.conf`, put each flag on its own line. The packaged launcher passes each line as a single argument, so `--disable-gpu --no-zygote` on one line will not apply either flag. Write them like this, then fully quit and reopen Spotify:
+
+```text
+--disable-gpu
+--no-zygote
+```
+
+
 ## Dropbox
 
 [Dropbox](https://www.dropbox.com/) is a great way to sync files between machines while keeping a backup in the cloud. To set it up, select _Install > Service > Dropbox_ from the Omarchy menu. Once it's running, hover the tray in the top right of the bar and right-click the Dropbox icon to finish the setup.
