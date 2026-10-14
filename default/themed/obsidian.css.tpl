@@ -97,3 +97,22 @@
 .search-result-file-title {
   color: var(--interactive-accent);
 }
+
+/* Data Files Editor uses a standalone CodeMirror 6 view. */
+.datafile-source-view.mod-cm6 {
+  --datafile-active-line: color-mix(in srgb, var(--text-selection) 70%, var(--background-primary));
+}
+
+.datafile-source-view.mod-cm6 .cm-selectionLayer .cm-selectionBackground {
+  background-color: var(--text-selection) !important;
+}
+
+.datafile-source-view.mod-cm6 .cm-content ::selection {
+  background-color: transparent !important;
+  color: var(--text-normal) !important;
+}
+
+.datafile-source-view.mod-cm6 .cm-activeLine,
+.datafile-source-view.mod-cm6 .cm-gutterElement.cm-activeLineGutter {
+  background-color: var(--datafile-active-line) !important;
+}

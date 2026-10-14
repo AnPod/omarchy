@@ -45,20 +45,18 @@ BarWidget {
   MouseArea {
     anchors.fill: parent
     hoverEnabled: true
-    acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
+    acceptedButtons: Qt.LeftButton | Qt.MiddleButton
     cursorShape: Qt.PointingHandCursor
 
     onClicked: function(mouse) {
       if (!root.toplevel) return
       if (mouse.button === Qt.MiddleButton) {
         root.toplevel.close()
-      } else if (mouse.button === Qt.RightButton) {
-        root.toplevel.close()
       } else {
         root.toplevel.activate()
       }
     }
-    onEntered: if (root.bar) root.bar.showTooltip(root, root.title)
+    onEntered: if (root.bar) root.bar.showTooltip(root, root.title + "\nLeft-click to focus · Middle-click to close")
     onExited: if (root.bar) root.bar.hideTooltip(root)
   }
 }

@@ -393,3 +393,23 @@ elsewhere). The module is an `Item` and receives `bar`, `moduleName`,
 `run(cmd)`, `showTooltip(t, s)` / `hideTooltip(t)`,
 `requestPopout(o)` / `releasePopout(o)`. To shell-quote arguments for
 `run`, use `Util.shellQuote(v)` from `qs.Commons`.
+
+## Linting plugin QML
+
+On Arch, `qt6-declarative` supplies `/usr/lib/qt6/bin/qmllint`; `qmllint` is not normally on PATH. Quickshell resolves `qs.*` imports against the shell root at runtime. For qmllint, create the corresponding `qs/` import directory explicitly:
+
+```bash
+(
+  imports=$(mktemp -d)
+  trap 'rm -rf "$imports"' EXIT
+  ln -s "$OMARCHY_PATH/shell" "$imports/qs"
+  /usr/lib/qt6/bin/qmllint -I "$imports" -W 0 \
+    "$PLUGIN_DIR/BarWidget.qml" "$PLUGIN_DIR/Panel.qml"
+)
+```
+
+Set `PLUGIN_DIR` to your plugin directory and list the QML files it actually contains. `-W 0` makes warnings fail the check, including unresolved imports. Do not treat an exit code of zero from a default qmllint invocation as proof that imports resolved. Install Quickshell's development QML metadata if the linter reports unresolved `Quickshell.*` imports.
+
+Qmllint can also report `missing-property` for valid runtime-injected properties, such as a `Loader.item` typed as `QObject`. Review those messages against the host's plugin contract. For an exploratory check, `--missing-property info` lowers that category's severity; it also lowers misspelled-property diagnostics, so use the strict invocation above when checking for those mistakes.
+
+Linting does not replace testing the plugin inside the running Omarchy shell.

@@ -16,6 +16,12 @@ Everything else still works exactly as the theme author wrote it — `btop.theme
 
 Omarchy tells the two apart by whether the theme has its own git repo inside it, which is what `omarchy theme install` leaves behind when it clones. So a theme you wrote stays yours, and one you pulled off the internet stays colours.
 
+### Adding backgrounds
+
+Put backgrounds that belong to your theme in its `backgrounds/` directory. Omarchy copies the theme when you apply it, so after adding, removing, or editing files there, reapply it with `omarchy theme set <theme-name>` to refresh the wallpaper picker and background cycling.
+
+For backgrounds you want to add without reapplying the theme, use `~/.config/omarchy/backgrounds/<theme-name>/` instead. The picker and `omarchy theme bg next` read that directory each time. Use the theme's directory name, such as `tokyo-night`, for `<theme-name>`.
+
 ### Light mode
 
 If you're making a light mode theme, set `mode = "light"` at the top of your `colors.toml`. Then it'll automatically be paired with light mode for all the apps. (The old way of dropping an empty file called `light.mode` in the root of your theme still works too.)
