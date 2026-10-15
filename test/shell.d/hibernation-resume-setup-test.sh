@@ -57,6 +57,10 @@ cat > "$fixture/bin/omarchy-cmd-missing" <<'STUB'
 #!/bin/bash
 exit 1
 STUB
+cat > "$fixture/bin/omarchy-hw-aarch64-apple" <<'STUB'
+#!/bin/bash
+exit 1
+STUB
 cat > "$fixture/bin/swaplabel" <<'STUB'
 #!/bin/bash
 exit 0
