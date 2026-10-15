@@ -221,6 +221,14 @@ cmp -s "$drop_in" "$fixture/original" || fail "valid drop-in stays unchanged"
 pass "valid drop-in stays unchanged"
 
 prepare_repair
+printf 'KERNEL_CMDLINE[default]=quiet resume=/dev/mapper/other resume_offset=6789\n' > "$drop_in"
+cp "$drop_in" "$fixture/original"
+run_setup
+cmp -s "$drop_in" "$fixture/original" || fail "unquoted drop-in gets no second resume parameters"
+[[ ! -e $fixture/rebuilds ]] || fail "unquoted drop-in does not rebuild"
+pass "unquoted drop-in stays unchanged"
+
+prepare_repair
 printf '# Previously had resume= blank\nKERNEL_CMDLINE[default]+=" resume= resume_offset=6789" # Previously had resume= blank\n' > "$drop_in"
 run_setup
 expected=$(printf '# Previously had resume= blank\nKERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2 resume_offset=6789" # Previously had resume= blank')

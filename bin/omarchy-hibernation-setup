@@ -106,7 +106,8 @@ if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; 
           if sudo sed -Ei "s|^([[:space:]]*KERNEL_CMDLINE\[default\]\+?=\"([^\"]*[[:space:]])?)resume=([[:space:]]\|\")|\1resume=$RESUME_DEVICE_ESCAPED\3|" "$RESUME_DROP_IN"; then
             RESUME_CHANGED=true
           fi
-        else
+        # Append only when no active line sets it in any form, quoted or not.
+        elif ! grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?=(.*[[:space:]"])?resume=' "$RESUME_DROP_IN"; then
           MISSING_RESUME_PARAMS+=" resume=$RESUME_DEVICE"
         fi
       fi
@@ -119,7 +120,7 @@ if [[ -f $MKINITCPIO_CONF ]] && grep -q "^HOOKS+=(resume)$" "$MKINITCPIO_CONF"; 
           if sudo sed -Ei "s|^([[:space:]]*KERNEL_CMDLINE\[default\]\+?=\"([^\"]*[[:space:]])?)resume_offset=([[:space:]]\|\")|\1resume_offset=$RESUME_OFFSET\3|" "$RESUME_DROP_IN"; then
             RESUME_CHANGED=true
           fi
-        else
+        elif ! grep -Eq '^[[:space:]]*KERNEL_CMDLINE\[default\]\+?=(.*[[:space:]"])?resume_offset=' "$RESUME_DROP_IN"; then
           MISSING_RESUME_PARAMS+=" resume_offset=$RESUME_OFFSET"
         fi
       fi
