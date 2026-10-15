@@ -229,6 +229,13 @@ cmp -s "$drop_in" "$fixture/original" || fail "unquoted drop-in gets no second r
 pass "unquoted drop-in stays unchanged"
 
 prepare_repair
+printf 'KERNEL_CMDLINE[default]+=" quiet resume_offset=6789" # previously resume=/dev/old\n' > "$drop_in"
+run_setup --no-rebuild
+grep -Fx 'KERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2"' "$drop_in" >/dev/null ||
+  fail "a trailing comment naming resume= does not stop the device being added"
+pass "trailing comments do not count as configured parameters"
+
+prepare_repair
 printf '# Previously had resume= blank\nKERNEL_CMDLINE[default]+=" resume= resume_offset=6789" # Previously had resume= blank\n' > "$drop_in"
 run_setup
 expected=$(printf '# Previously had resume= blank\nKERNEL_CMDLINE[default]+=" resume=/dev/nvme0n1p2 resume_offset=6789" # Previously had resume= blank')
