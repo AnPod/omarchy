@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "repository": "omacom/omarchy",
+  "fork": "AnPod/omarchy",
+  "lease": {
+    "run_id": "omarchy-20261015230933000-b937d318e10128",
+    "acquired_at": "2026-10-15T23:09:33.000Z",
+    "expires_at": "2026-10-16T02:09:33.000Z"
+  },
+  "pending_submission": null,
+  "last_run": {
+    "run_id": "omarchy-20261015230933000-b937d318e10128",
+    "status": "running",
+    "started_at": "2026-10-15T23:09:33.000Z",
+    "upstream_base": "8a787b6a8bec830b04543bf14c760ee0a10591f6"
+  },
+  "history": []
+}
