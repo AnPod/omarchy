@@ -1903,7 +1903,7 @@ repair_sleep_lock_unit_override() {
       printf 'Cannot update read-only sleep lock unit: %s\n' "$unit" >&2
       return 1
     fi
-    backup_config_file "$unit" || return
+    backup_config_file "$target" || return
     tmp=$(mktemp "$target.XXXXXX") || return
     if LEGACY_EXEC="$legacy_exec" CURRENT_EXEC="$current_exec" awk '
       $0 == ENVIRON["LEGACY_EXEC"] { print ENVIRON["CURRENT_EXEC"]; next }
