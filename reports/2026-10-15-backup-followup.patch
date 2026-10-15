@@ -1,0 +1,44 @@
+diff --git a/bin/omarchy-upgrade-to-quattro b/bin/omarchy-upgrade-to-quattro
+index 1cc14e04..7f56ac07 100755
+--- a/bin/omarchy-upgrade-to-quattro
++++ b/bin/omarchy-upgrade-to-quattro
+@@ -1903,7 +1903,7 @@ repair_sleep_lock_unit_override() {
+       printf 'Cannot update read-only sleep lock unit: %s\n' "$unit" >&2
+       return 1
+     fi
+-    backup_config_file "$unit" || return
++    backup_config_file "$target" || return
+     tmp=$(mktemp "$target.XXXXXX") || return
+     if LEGACY_EXEC="$legacy_exec" CURRENT_EXEC="$current_exec" awk '
+       $0 == ENVIRON["LEGACY_EXEC"] { print ENVIRON["CURRENT_EXEC"]; next }
+diff --git a/test/shell.d/config-rewrite-preservation-test.sh b/test/shell.d/config-rewrite-preservation-test.sh
+index 945c00de..7b2b22e9 100755
+--- a/test/shell.d/config-rewrite-preservation-test.sh
++++ b/test/shell.d/config-rewrite-preservation-test.sh
+@@ -20,7 +20,8 @@ load_function() {
+ load_function "$ROOT/bin/omarchy-theme-set-vscode" rewrite_extension_registry
+ load_function "$ROOT/bin/omarchy-theme-set-vscode" register_generated_extension
+ load_function "$ROOT/bin/omarchy-upgrade-to-quattro" repair_sleep_lock_unit_override
+-backup_config_file() { :; }
++load_function "$ROOT/bin/omarchy-upgrade-to-quattro" backup_config_file
++BACKUP_SUFFIX=test
+ GENERATED_EXTENSION_ID=local.omarchy-theme
+ GENERATED_EXTENSION_VERSION=1.0.0
+ ext_base="$HOME/.vscode/extensions"
+@@ -100,7 +101,16 @@ ln -s ../../../dotfiles/dictation "$config"
+ ln -s ../../../dotfiles/sleep-lock.service "$unit"
+ register_generated_extension "$ext_dir"
+ "$ROOT/bin/omarchy-dictation-use" new-backend
++unit_target=$(readlink -f -- "$unit")
++unit_before=$(cat "$unit_target")
+ repair_sleep_lock_unit_override
++unit_backup="$unit_target.omarchy-upgrade-to-quattro.$BACKUP_SUFFIX.bak"
++[[ -f $unit_backup && ! -L $unit_backup ]] || fail "sleep lock backup snapshots the resolved file"
++[[ $(cat "$unit_backup") == "$unit_before" ]] || fail "sleep lock backup retains the original contents"
++assert_mode "$unit_backup" 640 'sleep lock backup'
++repair_sleep_lock_unit_override
++[[ $(cat "$unit_backup") == "$unit_before" ]] || fail "repeated repair preserves the original backup"
++pass "sleep lock repair retains a snapshot of the original symlink referent"
+ for file in "$registry" "$obsolete" "$config" "$unit"; do
+   [[ -L $file && -f $file ]] || fail "config rewrite retains a live relative symlink: $file"
+   assert_mode "$file" 640 'symlink referent'
