@@ -7,14 +7,19 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 require_command jq
 require_command locale
 
-turkish_locale=$(locale -a | awk 'tolower($0) ~ /^tr_tr([.]|$)/ { print; exit }')
-if [[ -z $turkish_locale ]]; then
-  skip "Turkish locale is not installed; skipping locale-sensitive command parsing"
-  exit 0
-fi
-
 work=$(mktemp -d)
 trap 'rm -rf "$work"' EXIT
+
+turkish_locale=$(locale -a | awk 'tolower($0) ~ /^tr_tr([.]|$)/ { print; exit }')
+if [[ -z $turkish_locale ]]; then
+  mkdir -p "$work/locales"
+  if ! localedef -i tr_TR -f UTF-8 "$work/locales/tr_TR.UTF-8" >/dev/null 2>&1; then
+    skip "locale-sensitive command parsing: localedef cannot build tr_TR"
+    exit 0
+  fi
+  export LOCPATH="$work/locales"
+  turkish_locale=tr_TR.UTF-8
+fi
 
 command_bin=${OMARCHY_LOCALE_TEST_BIN:-$ROOT/bin}
 home_dir="$work/home"
