@@ -2,16 +2,105 @@
   "version": 1,
   "repository": "omacom/omarchy",
   "fork": "AnPod/omarchy",
-  "lease": {
-    "run_id": "omarchy-20261016070659000-97b44548278b8",
-    "acquired_at": "2026-10-16T07:06:59.000Z",
-    "expires_at": "2026-10-16T10:06:59.000Z"
-  },
+  "lease": null,
   "pending_submission": null,
   "last_run": {
     "run_id": "omarchy-20261016070659000-97b44548278b8",
-    "status": "running",
-    "started_at": "2026-10-16T07:06:59.000Z"
+    "status": "skipped",
+    "started_at": "2026-10-16T07:06:59.000Z",
+    "finished_at": "2026-10-16T07:09:32.000Z",
+    "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+    "selected_issue": null,
+    "reason": "No eligible small fix emerged from the current test-harness and command-failure shortlist. Small changes are already covered by active fixes or current upstream; remaining reports need broader lifecycle work or unavailable runtime validation.",
+    "screened_issue_count": 38,
+    "excluded_candidates": [
+      {
+        "issue": 7122,
+        "referenced_prs": [
+          7405
+        ],
+        "reason": "Issue comments claim the work and identify an existing ripgrep dependency fix; secondary error handling remains a separate maintainer decision."
+      },
+      {
+        "issue": 7121,
+        "referenced_prs": [
+          14540
+        ],
+        "reason": "Existing test-state contamination fix and recorded mutation verification."
+      },
+      {
+        "issue": 8742,
+        "merged_fixes": [
+          8268
+        ],
+        "reason": "Original Python capture fixed, then affected migration test retired. Remaining rg-wrapper note is outside the original removed test."
+      },
+      {
+        "issue": 6999,
+        "merged_fix": 13076,
+        "reason": "Current system-power test already stubs OSD; issue discussion confirms shipped test fix."
+      },
+      {
+        "issue": 7123,
+        "referenced_prs": [
+          14547
+        ],
+        "reason": "Existing assertion diagnostics and negation-guard fix."
+      },
+      {
+        "issue": 7124,
+        "referenced_prs": [
+          14545
+        ],
+        "reason": "Existing process-group cleanup fix for background test shells."
+      },
+      {
+        "issue": 7125,
+        "reason": "Current testing docs and base-test helper already document and handle companion checkouts."
+      },
+      {
+        "issue": 14025,
+        "referenced_prs": [
+          7598,
+          11054,
+          11235,
+          13239,
+          10253,
+          14278,
+          14026
+        ],
+        "reason": "Issue discussion lists multiple proposed worker-cleanup fixes; reliable SIGKILL lifecycle handling is not a trivial patch."
+      },
+      {
+        "issue": 11630,
+        "reason": "Current privileged Bash startup and sanitized PATH already address the reported shadowed logger path."
+      },
+      {
+        "issue": 11115,
+        "referenced_prs": [
+          11117,
+          13006,
+          13743
+        ],
+        "reason": "Existing plugin rescan error/timeout changes overlap."
+      },
+      {
+        "issue": 10636,
+        "referenced_prs": [
+          9423
+        ],
+        "reason": "Existing bounded browser-policy refresh fix identified in issue discussion."
+      },
+      {
+        "issue": 8297,
+        "reason": "Routing cause remains speculative and native dual-interface validation is unavailable."
+      }
+    ],
+    "validation": [],
+    "issue_code_changes": [],
+    "issue_branches_created": [],
+    "pull_requests_created": [],
+    "pending_submission": null
   },
   "history": [
     {
@@ -171,6 +260,104 @@
         {
           "issue": 14294,
           "reason": "Speed-test accuracy report spans measurement timing, UI averaging and network behavior; not a small fully validated fix in this environment."
+        }
+      ],
+      "validation": [],
+      "issue_code_changes": [],
+      "issue_branches_created": [],
+      "pull_requests_created": [],
+      "pending_submission": null
+    },
+    {
+      "run_id": "omarchy-20261016070659000-97b44548278b8",
+      "status": "skipped",
+      "started_at": "2026-10-16T07:06:59.000Z",
+      "finished_at": "2026-10-16T07:09:32.000Z",
+      "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+      "selected_issue": null,
+      "reason": "No eligible small fix emerged from the current test-harness and command-failure shortlist. Small changes are already covered by active fixes or current upstream; remaining reports need broader lifecycle work or unavailable runtime validation.",
+      "screened_issue_count": 38,
+      "excluded_candidates": [
+        {
+          "issue": 7122,
+          "referenced_prs": [
+            7405
+          ],
+          "reason": "Issue comments claim the work and identify an existing ripgrep dependency fix; secondary error handling remains a separate maintainer decision."
+        },
+        {
+          "issue": 7121,
+          "referenced_prs": [
+            14540
+          ],
+          "reason": "Existing test-state contamination fix and recorded mutation verification."
+        },
+        {
+          "issue": 8742,
+          "merged_fixes": [
+            8268
+          ],
+          "reason": "Original Python capture fixed, then affected migration test retired. Remaining rg-wrapper note is outside the original removed test."
+        },
+        {
+          "issue": 6999,
+          "merged_fix": 13076,
+          "reason": "Current system-power test already stubs OSD; issue discussion confirms shipped test fix."
+        },
+        {
+          "issue": 7123,
+          "referenced_prs": [
+            14547
+          ],
+          "reason": "Existing assertion diagnostics and negation-guard fix."
+        },
+        {
+          "issue": 7124,
+          "referenced_prs": [
+            14545
+          ],
+          "reason": "Existing process-group cleanup fix for background test shells."
+        },
+        {
+          "issue": 7125,
+          "reason": "Current testing docs and base-test helper already document and handle companion checkouts."
+        },
+        {
+          "issue": 14025,
+          "referenced_prs": [
+            7598,
+            11054,
+            11235,
+            13239,
+            10253,
+            14278,
+            14026
+          ],
+          "reason": "Issue discussion lists multiple proposed worker-cleanup fixes; reliable SIGKILL lifecycle handling is not a trivial patch."
+        },
+        {
+          "issue": 11630,
+          "reason": "Current privileged Bash startup and sanitized PATH already address the reported shadowed logger path."
+        },
+        {
+          "issue": 11115,
+          "referenced_prs": [
+            11117,
+            13006,
+            13743
+          ],
+          "reason": "Existing plugin rescan error/timeout changes overlap."
+        },
+        {
+          "issue": 10636,
+          "referenced_prs": [
+            9423
+          ],
+          "reason": "Existing bounded browser-policy refresh fix identified in issue discussion."
+        },
+        {
+          "issue": 8297,
+          "reason": "Routing cause remains speculative and native dual-interface validation is unavailable."
         }
       ],
       "validation": [],
