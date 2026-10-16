@@ -2,16 +2,87 @@
   "version": 1,
   "repository": "omacom/omarchy",
   "fork": "AnPod/omarchy",
-  "lease": {
-    "run_id": "omarchy-20261016151231000-953c3e3deea808",
-    "acquired_at": "2026-10-16T15:12:31.000Z",
-    "expires_at": "2026-10-16T18:12:31.000Z"
-  },
+  "lease": null,
   "pending_submission": null,
   "last_run": {
     "run_id": "omarchy-20261016151231000-953c3e3deea808",
-    "status": "running",
-    "started_at": "2026-10-16T15:12:31.000Z"
+    "status": "skipped",
+    "started_at": "2026-10-16T15:12:31.000Z",
+    "finished_at": "2026-10-16T15:14:25.000Z",
+    "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+    "selected_issue": null,
+    "reason": "No eligible small fix in this run's shortlist: overlapping open PRs, claimed work, or local/legacy configurations. Remaining new hardware/runtime reports cannot be validated on this headless cloud host.",
+    "screened_issue_count": 76,
+    "shortlisted_issue_count": 7,
+    "excluded_candidates": [
+      {
+        "issue": 15509,
+        "open_prs": [
+          15579
+        ],
+        "reason": "Open user-dirs locale duplication fix by AnPod; no duplicate work."
+      },
+      {
+        "issue": 15494,
+        "open_prs": [
+          15540,
+          15482,
+          6510
+        ],
+        "reason": "Open plugin-disable layout/tray and clone lifecycle work overlaps."
+      },
+      {
+        "issue": 15443,
+        "open_prs": [
+          15445,
+          8809
+        ],
+        "reason": "PR #15445 proposes exact loudnorm EOF padding fix. No duplicate implementation or generated-media testing needed."
+      },
+      {
+        "issue": 15491,
+        "reason": "Current upstream has no hypridle configuration/autostart; hypridle is retired. Native idle service watches stay-awake state. Report uses legacy/local configuration."
+      },
+      {
+        "issue": 8920,
+        "open_prs": [
+          9039
+        ],
+        "reason": "Existing positive-pane-count validation fix; issue discussion confirms work under review."
+      },
+      {
+        "issue": 14124,
+        "reason": "Current etc/sudoers.d/omarchy-tzupdate already has the correct repetition quantifiers; issue comments confirm report is a locally rewritten Kali rule."
+      },
+      {
+        "issue": 13037,
+        "reason": "Issue comment explicitly claims a drafted and tested editor-wait fix awaiting maintainer/reviewer decision; excluded as ongoing work."
+      },
+      {
+        "issue": 15635,
+        "open_prs": [
+          15648
+        ],
+        "reason": "New Battle.net removal-confirmation report is already covered by AnPod's current upstream PR."
+      },
+      {
+        "issue": 15642,
+        "open_prs": [
+          15645
+        ],
+        "reason": "New togglesplit/scrolling-layout report is already covered by AnPod's current upstream PR."
+      }
+    ],
+    "validation": [
+      {
+        "check": "Fresh isolated upstream checkout: git diff --check and git status --porcelain",
+        "result": "Passed; checkout clean at 51bfd1dbaa1b5f790e19623faf2745945d40c796. No implementation tests run because no issue selected."
+      }
+    ],
+    "issue_code_changes": [],
+    "issue_branches_created": [],
+    "pull_requests_created": [],
+    "pending_submission": null
   },
   "history": [
     {
@@ -339,6 +410,86 @@
         {
           "check": "Fresh isolated current-upstream checkout: git diff --check and git status --short",
           "result": "Passed; checkout is clean. No implementation tests run because no issue was selected."
+        }
+      ],
+      "issue_code_changes": [],
+      "issue_branches_created": [],
+      "pull_requests_created": [],
+      "pending_submission": null
+    },
+    {
+      "run_id": "omarchy-20261016151231000-953c3e3deea808",
+      "status": "skipped",
+      "started_at": "2026-10-16T15:12:31.000Z",
+      "finished_at": "2026-10-16T15:14:25.000Z",
+      "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+      "selected_issue": null,
+      "reason": "No eligible small fix in this run's shortlist: overlapping open PRs, claimed work, or local/legacy configurations. Remaining new hardware/runtime reports cannot be validated on this headless cloud host.",
+      "screened_issue_count": 76,
+      "shortlisted_issue_count": 7,
+      "excluded_candidates": [
+        {
+          "issue": 15509,
+          "open_prs": [
+            15579
+          ],
+          "reason": "Open user-dirs locale duplication fix by AnPod; no duplicate work."
+        },
+        {
+          "issue": 15494,
+          "open_prs": [
+            15540,
+            15482,
+            6510
+          ],
+          "reason": "Open plugin-disable layout/tray and clone lifecycle work overlaps."
+        },
+        {
+          "issue": 15443,
+          "open_prs": [
+            15445,
+            8809
+          ],
+          "reason": "PR #15445 proposes exact loudnorm EOF padding fix. No duplicate implementation or generated-media testing needed."
+        },
+        {
+          "issue": 15491,
+          "reason": "Current upstream has no hypridle configuration/autostart; hypridle is retired. Native idle service watches stay-awake state. Report uses legacy/local configuration."
+        },
+        {
+          "issue": 8920,
+          "open_prs": [
+            9039
+          ],
+          "reason": "Existing positive-pane-count validation fix; issue discussion confirms work under review."
+        },
+        {
+          "issue": 14124,
+          "reason": "Current etc/sudoers.d/omarchy-tzupdate already has the correct repetition quantifiers; issue comments confirm report is a locally rewritten Kali rule."
+        },
+        {
+          "issue": 13037,
+          "reason": "Issue comment explicitly claims a drafted and tested editor-wait fix awaiting maintainer/reviewer decision; excluded as ongoing work."
+        },
+        {
+          "issue": 15635,
+          "open_prs": [
+            15648
+          ],
+          "reason": "New Battle.net removal-confirmation report is already covered by AnPod's current upstream PR."
+        },
+        {
+          "issue": 15642,
+          "open_prs": [
+            15645
+          ],
+          "reason": "New togglesplit/scrolling-layout report is already covered by AnPod's current upstream PR."
+        }
+      ],
+      "validation": [
+        {
+          "check": "Fresh isolated upstream checkout: git diff --check and git status --porcelain",
+          "result": "Passed; checkout clean at 51bfd1dbaa1b5f790e19623faf2745945d40c796. No implementation tests run because no issue selected."
         }
       ],
       "issue_code_changes": [],
