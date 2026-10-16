@@ -122,7 +122,9 @@ assertEqual(network.headerDetail({ type: 'ethernet', speed: '100' }), '100mbit',
 // Evaluate the actual header binding while the slower details poll is pending.
 const titleBinding = panelSource.match(/id: heroSsid[\s\S]*?readonly property string title: \{([\s\S]*?)\n {12}\}/)
 assert(titleBinding, 'network has a hero title binding')
-const headerTitle = new Function('root', titleBinding[1])
+const shellStrings = JSON.parse(fs.readFileSync(root + '/default/i18n/en/shell.json', 'utf8'))
+const Commons = { I18n: { t: key => shellStrings[key] } }
+const headerTitle = network => new Function('root', 'Commons', titleBinding[1])(network, Commons)
 assertEqual(headerTitle({ kind: 'wifi', info: {}, connectedWifiNetwork: { name: 'Home' } }), 'Home', 'network header shows the active SSID before details arrive')
 assertEqual(headerTitle({ kind: 'wifi', info: {}, connectedWifiNetwork: null }), 'Wi-Fi', 'network header shows Wi-Fi for a connected device before details arrive')
 assertEqual(headerTitle({ kind: 'ethernet', info: {} }), 'Ethernet', 'network header shows Ethernet before details arrive')
