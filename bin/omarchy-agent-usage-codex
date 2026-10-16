@@ -1105,7 +1105,7 @@ def account_limits(account, previous):
   return {
     "id": account["id"],
     "label": str(account.get("label") or account["id"]),
-    "email": rpc["email"],
+    "email": rpc["email"] or str(account.get("email") or ""),
     "accountId": rpc["accountId"],
     "plan": rpc["tierLabel"] or str(account.get("plan") or ""),
     "active": account["active"],

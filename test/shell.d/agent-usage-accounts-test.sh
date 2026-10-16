@@ -274,6 +274,14 @@ jq -e '.email == "" and .accountId == "" and ([.accounts[] | {email, accountId, 
   fail "Codex multi-account collection succeeds with unknown login identities" "$unknown"
 pass "Codex multi-account collection succeeds with unknown login identities"
 
+cp "$accounts/codex.json" "$test_tmp/codex-registry.json"
+jq '.accounts[1].email = "side@example.com"' "$test_tmp/codex-registry.json" >"$accounts/codex.json"
+unknown=$(CODEX_ACCESS_TOKEN=token PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
+mv "$test_tmp/codex-registry.json" "$accounts/codex.json"
+[[ $(jq -r '.accounts[1].email' <<<"$unknown") == "side@example.com" ]] ||
+  fail "a Codex login auth.json cannot identify keeps its registered email" "$unknown"
+pass "a Codex login auth.json cannot identify keeps its registered email"
+
 inherited=$(CODEX_HOME="$accounts/codex/side" PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
 [[ $(jq -c '[.accounts[] | .limits[0].percent]' <<<"$inherited") == '[0.4,0.91]' ]] ||
   fail "Main's Codex limits come from ~/.codex whatever CODEX_HOME says" "$inherited"
