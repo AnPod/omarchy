@@ -2,105 +2,16 @@
   "version": 1,
   "repository": "omacom/omarchy",
   "fork": "AnPod/omarchy",
-  "lease": null,
+  "lease": {
+    "run_id": "omarchy-20261016031121000-cbf5ab73693f08",
+    "acquired_at": "2026-10-16T03:11:21.000Z",
+    "expires_at": "2026-10-16T06:11:21.000Z"
+  },
   "pending_submission": null,
   "last_run": {
-    "run_id": "omarchy-20261015230933000-b937d318e10128",
-    "status": "skipped",
-    "started_at": "2026-10-15T23:09:33.000Z",
-    "finished_at": "2026-10-15T23:14:16.000Z",
-    "upstream_base": "8a787b6a8bec830b04543bf14c760ee0a10591f6",
-    "selected_issue": null,
-    "reason": "No eligible, fully verifiable issue was found in the screened shortlist.",
-    "screened_issue_count": 207,
-    "excluded_candidates": [
-      {
-        "issue": 15390,
-        "open_prs": [
-          15395,
-          15382
-        ]
-      },
-      {
-        "issue": 15225,
-        "open_prs": [
-          15245
-        ]
-      },
-      {
-        "issue": 15194,
-        "open_prs": [
-          15210
-        ]
-      },
-      {
-        "issue": 15216,
-        "open_prs": [
-          7564,
-          14128
-        ]
-      },
-      {
-        "issue": 14887,
-        "open_prs": [
-          14914,
-          15178
-        ]
-      },
-      {
-        "issue": 15373,
-        "open_prs": [
-          15389,
-          15377,
-          15541,
-          12755,
-          12649
-        ]
-      },
-      {
-        "issue": 14857,
-        "open_prs": [
-          14858
-        ]
-      },
-      {
-        "issue": 14838,
-        "open_prs": [
-          7460
-        ]
-      },
-      {
-        "issue": 7964,
-        "open_prs": [
-          14638
-        ]
-      },
-      {
-        "issue": 10853,
-        "open_prs": [
-          14618,
-          14868
-        ]
-      },
-      {
-        "issue": 14574,
-        "reason": "Reported config key is absent from upstream; issue discussion identifies local modification."
-      },
-      {
-        "issue": 15551,
-        "reason": "Native Hyprland, Quickshell, Superwhisper package/daemon, user systemd session and VM tooling unavailable; prior mocked checks do not satisfy native verification."
-      }
-    ],
-    "validation": [
-      {
-        "check": "Issue #14838 Lua exit-status reproduction with actual Lua 5.4.7",
-        "result": "Confirmed bare stdin assertion exits 0; lua - exits 1. No implementation because overlapping PR #7460."
-      }
-    ],
-    "issue_code_changes": [],
-    "issue_branches_created": [],
-    "pull_requests_created": [],
-    "pending_submission": null
+    "run_id": "omarchy-20261016031121000-cbf5ab73693f08",
+    "status": "running",
+    "started_at": "2026-10-16T03:11:21.000Z"
   },
   "history": [
     {
