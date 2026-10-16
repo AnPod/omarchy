@@ -2,76 +2,16 @@
   "version": 1,
   "repository": "omacom/omarchy",
   "fork": "AnPod/omarchy",
-  "lease": null,
+  "lease": {
+    "run_id": "omarchy-20261016151231000-953c3e3deea808",
+    "acquired_at": "2026-10-16T15:12:31.000Z",
+    "expires_at": "2026-10-16T18:12:31.000Z"
+  },
   "pending_submission": null,
   "last_run": {
-    "run_id": "omarchy-20261016111359000-9c91d282fdb2e8",
-    "status": "skipped",
-    "started_at": "2026-10-16T11:13:59.000Z",
-    "finished_at": "2026-10-16T11:17:23.000Z",
-    "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
-    "selected_issue": null,
-    "reason": "No eligible small fix found in this run's shortlist. Exact or overlapping fixes already have open upstream PRs; remaining new reports require hardware or live desktop validation unavailable here.",
-    "screened_issue_count": 63,
-    "shortlisted_issue_count": 4,
-    "excluded_candidates": [
-      {
-        "issue": 15618,
-        "open_prs": [
-          12960,
-          10364,
-          11404,
-          6760
-        ],
-        "reason": "Repeated keyboard-backlight off overwriting saved brightness is already covered by open proposals; PR #12960 is the exact suggested fix."
-      },
-      {
-        "issue": 15617,
-        "open_prs": [
-          15400,
-          14767,
-          15053
-        ],
-        "reason": "QML sequence manifest kinds and null appLibrary already have open proposed fixes."
-      },
-      {
-        "issue": 14394,
-        "open_prs": [
-          9031,
-          7826
-        ],
-        "reason": "PR #9031 covers shell crash/restart orphaned menu waiters; no duplicate implementation."
-      },
-      {
-        "issue": 14375,
-        "open_prs": [
-          7446
-        ],
-        "reason": "Open default-editor XDG MIME synchronization fix."
-      },
-      {
-        "issue": 15621,
-        "reason": "Camera sensor rotation requires affected IPU7 hardware and package/kernel validation; not a small fully verifiable target-repository fix here."
-      },
-      {
-        "issue": 15620,
-        "reason": "Camera enumeration and kernel notifier problem requires affected IPU7 hardware and package/kernel validation."
-      },
-      {
-        "issue": 15619,
-        "reason": "Fingerprint suspend/claim lifecycle requires actual fprintd/PAM and suspend/resume verification; unavailable in headless cloud."
-      }
-    ],
-    "validation": [
-      {
-        "check": "Fresh isolated current-upstream checkout: git diff --check and git status --short",
-        "result": "Passed; checkout is clean. No implementation tests run because no issue was selected."
-      }
-    ],
-    "issue_code_changes": [],
-    "issue_branches_created": [],
-    "pull_requests_created": [],
-    "pending_submission": null
+    "run_id": "omarchy-20261016151231000-953c3e3deea808",
+    "status": "running",
+    "started_at": "2026-10-16T15:12:31.000Z"
   },
   "history": [
     {
