@@ -14,7 +14,9 @@ case "${1:-}" in
 "")
   variant=""
   if [[ -f $preference ]]; then
-    variant=$(sed -n 's|.*<family>Noto Sans CJK \([A-Z]*\)</family>.*|\1|p' "$preference" | head -n 1)
+    # C locale: the [A-Z] range misses I under tr_TR.UTF-8, so no variant reads
+    # back and the command always answers "default".
+    variant=$(LC_ALL=C sed -n 's|.*<family>Noto Sans CJK \([A-Z]*\)</family>.*|\1|p' "$preference" | head -n 1)
   fi
   variant=${variant,,}
   echo "${variant:-default}"
