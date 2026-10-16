@@ -912,6 +912,9 @@ def codex_identity(home, env):
 
 
 def matching_identity(current, previous):
+  # An email the registry supplied for display says nothing about who signed in.
+  if previous.get("emailVerified") is False:
+    previous = dict(previous, email="")
   shared = False
   for key in ("email", "accountId"):
     if current.get(key) and previous.get(key):
@@ -1106,6 +1109,7 @@ def account_limits(account, previous):
     "id": account["id"],
     "label": str(account.get("label") or account["id"]),
     "email": rpc["email"] or str(account.get("email") or ""),
+    "emailVerified": bool(rpc["email"]),
     "accountId": rpc["accountId"],
     "plan": rpc["tierLabel"] or str(account.get("plan") or ""),
     "active": account["active"],

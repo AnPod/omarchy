@@ -282,6 +282,16 @@ mv "$test_tmp/codex-registry.json" "$accounts/codex.json"
   fail "a Codex login auth.json cannot identify keeps its registered email" "$unknown"
 pass "a Codex login auth.json cannot identify keeps its registered email"
 
+# Meters saved under that registered email belong to whichever login the token
+# named, so a later timeout in the file login must not reuse them.
+mkdir -p "$XDG_STATE_HOME/omarchy/agents/usage"
+jq '.accounts[1].limits[0].percent = 0.5' <<<"$unknown" >"$XDG_STATE_HOME/omarchy/agents/usage/codex.json"
+failed=$(FAIL_ACCOUNT=side PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --limits-only)
+rm "$XDG_STATE_HOME/omarchy/agents/usage/codex.json"
+jq -e '.accounts[1].limits == [] and .accounts[1].retryAdvised == true' <<<"$failed" >/dev/null ||
+  fail "a registered email never lets one Codex login reuse another's meters" "$failed"
+pass "a registered email never lets one Codex login reuse another's meters"
+
 inherited=$(CODEX_HOME="$accounts/codex/side" PATH="$test_tmp/bin:$PATH" "$ROOT/bin/omarchy-agent-usage-codex" --force)
 [[ $(jq -c '[.accounts[] | .limits[0].percent]' <<<"$inherited") == '[0.4,0.91]' ]] ||
   fail "Main's Codex limits come from ~/.codex whatever CODEX_HOME says" "$inherited"
