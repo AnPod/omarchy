@@ -2,16 +2,74 @@
   "version": 1,
   "repository": "omacom/omarchy",
   "fork": "AnPod/omarchy",
-  "lease": {
-    "run_id": "omarchy-20261016031121000-cbf5ab73693f08",
-    "acquired_at": "2026-10-16T03:11:21.000Z",
-    "expires_at": "2026-10-16T06:11:21.000Z"
-  },
+  "lease": null,
   "pending_submission": null,
   "last_run": {
     "run_id": "omarchy-20261016031121000-cbf5ab73693f08",
-    "status": "running",
-    "started_at": "2026-10-16T03:11:21.000Z"
+    "status": "skipped",
+    "started_at": "2026-10-16T03:11:21.000Z",
+    "finished_at": "2026-10-16T03:14:25.000Z",
+    "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+    "selected_issue": null,
+    "reason": "No eligible small fix was found in the screened shortlist; proposed changes were already covered by open PRs or current upstream, or required broader design/runtime validation.",
+    "screened_issue_count": 122,
+    "excluded_candidates": [
+      {
+        "issue": 14359,
+        "open_prs": [
+          14362
+        ],
+        "reason": "Existing malformed Grok/Codex session-data fix."
+      },
+      {
+        "issue": 14351,
+        "open_prs": [
+          14352
+        ],
+        "reason": "Existing full SSH public-key paste fix."
+      },
+      {
+        "issue": 14219,
+        "linked_fix": 14217,
+        "reason": "Issue body already identifies a proposed fix; not taken."
+      },
+      {
+        "issue": 14163,
+        "open_prs": [
+          14200,
+          12533
+        ],
+        "reason": "Existing empty webapp Exec guard and overlapping desktop-Exec parsing work."
+      },
+      {
+        "issue": 14414,
+        "merged_fix": 9656,
+        "reason": "Current default-editor and launch-editor already normalize sublime_text to subl."
+      },
+      {
+        "issue": 14208,
+        "open_prs": [
+          14210
+        ],
+        "reason": "Existing font restart-notification and pgrep fix."
+      },
+      {
+        "issue": 14318,
+        "open_prs": [
+          14321
+        ],
+        "reason": "Existing socat cleanup in the background focus-restoration waiter."
+      },
+      {
+        "issue": 14294,
+        "reason": "Speed-test accuracy report spans measurement timing, UI averaging and network behavior; not a small fully validated fix in this environment."
+      }
+    ],
+    "validation": [],
+    "issue_code_changes": [],
+    "issue_branches_created": [],
+    "pull_requests_created": [],
+    "pending_submission": null
   },
   "history": [
     {
@@ -107,6 +165,73 @@
           "result": "Confirmed bare stdin assertion exits 0; lua - exits 1. No implementation because overlapping PR #7460."
         }
       ],
+      "issue_code_changes": [],
+      "issue_branches_created": [],
+      "pull_requests_created": [],
+      "pending_submission": null
+    },
+    {
+      "run_id": "omarchy-20261016031121000-cbf5ab73693f08",
+      "status": "skipped",
+      "started_at": "2026-10-16T03:11:21.000Z",
+      "finished_at": "2026-10-16T03:14:25.000Z",
+      "upstream_base": "51bfd1dbaa1b5f790e19623faf2745945d40c796",
+      "selected_issue": null,
+      "reason": "No eligible small fix was found in the screened shortlist; proposed changes were already covered by open PRs or current upstream, or required broader design/runtime validation.",
+      "screened_issue_count": 122,
+      "excluded_candidates": [
+        {
+          "issue": 14359,
+          "open_prs": [
+            14362
+          ],
+          "reason": "Existing malformed Grok/Codex session-data fix."
+        },
+        {
+          "issue": 14351,
+          "open_prs": [
+            14352
+          ],
+          "reason": "Existing full SSH public-key paste fix."
+        },
+        {
+          "issue": 14219,
+          "linked_fix": 14217,
+          "reason": "Issue body already identifies a proposed fix; not taken."
+        },
+        {
+          "issue": 14163,
+          "open_prs": [
+            14200,
+            12533
+          ],
+          "reason": "Existing empty webapp Exec guard and overlapping desktop-Exec parsing work."
+        },
+        {
+          "issue": 14414,
+          "merged_fix": 9656,
+          "reason": "Current default-editor and launch-editor already normalize sublime_text to subl."
+        },
+        {
+          "issue": 14208,
+          "open_prs": [
+            14210
+          ],
+          "reason": "Existing font restart-notification and pgrep fix."
+        },
+        {
+          "issue": 14318,
+          "open_prs": [
+            14321
+          ],
+          "reason": "Existing socat cleanup in the background focus-restoration waiter."
+        },
+        {
+          "issue": 14294,
+          "reason": "Speed-test accuracy report spans measurement timing, UI averaging and network behavior; not a small fully validated fix in this environment."
+        }
+      ],
+      "validation": [],
       "issue_code_changes": [],
       "issue_branches_created": [],
       "pull_requests_created": [],
