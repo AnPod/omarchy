@@ -21,7 +21,7 @@ fi
 
 # The whole point is the collation quirk; a glibc where [a-z] matches i under
 # tr_TR cannot tell the fix from the bug, so there is nothing to hold against.
-printf 'floating\n' >"$stage/probe.txt"
+printf 'mode = "floating"\n' >"$stage/probe.txt"
 if [[ -n $(LOCPATH=$stage/locales LC_ALL=tr_TR.UTF-8 sed -n 's/.*mode = "\([a-z]*\)".*/\1/p' "$stage/probe.txt") ]]; then
   skip "this glibc matches [a-z] under tr_TR.UTF-8; skipping the locale sed-range tests"
   exit 0
