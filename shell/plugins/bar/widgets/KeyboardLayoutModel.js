@@ -88,12 +88,14 @@ function eventKeyboardName(event) {
 // vendor hotkey block arrives as a radio control or extra buttons. Hyprland
 // keeps the layout per device, so these hold the seat's starting layout while
 // nobody ever types on them, and an event that names one would drag the label
-// off the keyboard being typed on.
+// off the keyboard being typed on. The kernel puts the endpoint's kind at the end
+// of its name, and a combo receiver sold as a "2.4G Mouse" names its keyboard
+// 2.4g-mouse-keyboard, so only the end of the name decides.
 //
 // Missing a name here costs the accuracy the seat had before, never a keyboard:
 // anything unrecognised stays in the list.
 var UNTYPED_KEYBOARDS = /^(hl-virtual-keyboard|power-button|sleep-button|lid-switch|video-bus)/
-var UNTYPED_DEVICES = /mouse|-consumer-control|-system-control|-radio-control|extra-buttons/i
+var UNTYPED_DEVICES = /-(mouse|consumer-control|system-control|radio-control|extra-buttons)(-\d+)?$/i
 
 function isTypedKeyboard(name) {
   name = String(name || "")
