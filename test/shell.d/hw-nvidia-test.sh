@@ -67,16 +67,16 @@ AMD display with Ampere offload|0|0|1|1|direct - -|0x1002:0x15bf:0x030000:1 0x10
 Intel display with Maxwell offload|0|1|0|1|egl - -|0x8086:0x46a6:0x030000:1 0x10de:0x1340:0x030000:0
 NVIDIA display with inactive iGPU|0|0|1|0|direct nvidia nvidia|0x1002:0x15bf:0x030000:0 0x10de:0x2c02:0x030000:1
 Hybrid without boot_vga|0|0|1|0|direct nvidia nvidia|0x1002:0x15e7:0x030000 0x10de:0x2560:0x030200
-Intel connected despite NVIDIA boot GPU|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:eDP-1:connected:0x8086 card1:HDMI-A-1:disconnected:0x10de
-NVIDIA connected despite Intel boot GPU|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000:1 0x10de:0x25ac:0x030000:0|card0:eDP-1:disconnected:0x8086 card12:HDMI-A-1:connected:0x10de
+Intel panel despite NVIDIA boot GPU|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:eDP-1:connected:0x8086 card1:HDMI-A-1:disconnected:0x10de
+Intel boot GPU with its only monitor on NVIDIA|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:1 0x10de:0x25ac:0x030000:0|card0:eDP-1:disconnected:0x8086 card12:HDMI-A-1:connected:0x10de
+NVIDIA boot GPU with its only monitor on Intel|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:DP-1:connected:0x8086 card1:DP-2:disconnected:0x10de
 Docked hybrid laptop with Intel boot GPU|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:1 0x10de:0x25ac:0x030000:0|card0:eDP-1:connected:0x8086 card1:DP-1:connected:0x10de
 Both GPUs connected with NVIDIA boot GPU|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:DP-2:connected:0x8086 card1:DP-1:connected:0x10de
 Strix Point panel without boot_vga|0|0|1|1|direct - -|0x1002:0x150e:0x038000 0x10de:0x25ac:0x030000:0|card2:eDP-1:connected:0x1002 card1:HDMI-A-1:disconnected:0x10de
 Strix Point panel beside a monitor on an NVIDIA port|0|0|1|1|direct - -|0x1002:0x150e:0x038000 0x10de:0x25ac:0x030000:0|card1:HDMI-A-1:connected:0x10de card2:DP-3:connected:0x1002 card2:eDP-1:connected:0x1002
 NVIDIA panel beside a monitor on an Intel boot GPU|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000:1 0x10de:0x25ac:0x030000:0|card1:eDP-1:connected:0x10de card0:DP-1:connected:0x8086
 Intel panel beside a monitor on an NVIDIA boot GPU|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:eDP-1:connected:0x8086 card1:DP-1:connected:0x10de
-AMD writeback beside an NVIDIA monitor|0|0|1|0|direct nvidia nvidia|0x1002:0x15bf:0x030000:1 0x10de:0x25ac:0x030000:0|card0:Writeback-1:connected:0x1002 card1:DP-1:connected:0x10de
-Intel connected with Maxwell offload|0|1|0|1|egl - -|0x8086:0x46a6:0x030000:0 0x10de:0x1340:0x030000:1|card0:eDP-1:connected:0x8086
+Intel panel with Maxwell offload|0|1|0|1|egl - -|0x8086:0x46a6:0x030000:0 0x10de:0x1340:0x030000:1|card0:eDP-1:connected:0x8086
 Disconnected connectors retain Intel boot fallback|0|0|1|1|direct - -|0x8086:0x46a6:0x030000:1 0x10de:0x25ac:0x030000:0|card0:eDP-1:disconnected:0x8086 card1:DP-1:disconnected:0x10de
 Disconnected connectors retain NVIDIA boot fallback|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000:0 0x10de:0x25ac:0x030000:1|card0:eDP-1:disconnected:0x8086 card1:DP-1:disconnected:0x10de
 Disconnected connectors without boot_vga retain permissive fallback|0|0|1|0|direct nvidia nvidia|0x8086:0x46a6:0x030000 0x10de:0x25ac:0x030000|card0:eDP-1:disconnected:0x8086 card1:DP-1:disconnected:0x10de
