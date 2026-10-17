@@ -64,3 +64,11 @@ variant=$(run_tr env XDG_CONFIG_HOME="$stage/config" "$ROOT/bin/omarchy-font-cjk
 [[ $variant == "jp" ]] ||
   fail "font-cjk reads back the variant under tr_TR.UTF-8" "expected: jp\nactual:   $variant"
 pass "font-cjk reads back the variant under tr_TR.UTF-8"
+
+mkdir -p "$stage/home/.local/state/omarchy/workspace-layouts"
+printf 'hl.workspace_rule({ workspace = "3", layout = "scrolling" })\n' >"$stage/home/.local/state/omarchy/workspace-layouts/3.lua"
+run_tr env HOME="$stage/home" XDG_STATE_HOME= bash -c 'source "$1"' _ "$ROOT/migrations/1791698594.sh" >/dev/null
+saved=$(<"$stage/home/.local/state/omarchy/workspace-layouts/3.lua")
+[[ $saved == 'o.workspace_mode({ workspace = "3", mode = "scrolling" })' ]] ||
+  fail "the workspace-mode migration converts a layout named with an i under tr_TR.UTF-8" "expected: o.workspace_mode({ workspace = \"3\", mode = \"scrolling\" })\nactual:   $saved"
+pass "the workspace-mode migration converts a layout named with an i under tr_TR.UTF-8"
