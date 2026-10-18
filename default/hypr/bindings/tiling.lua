@@ -12,9 +12,9 @@ local function toggle_split()
     hl.dispatch(hl.dsp.layout("togglesplit"))
   end
 end
--- The keybindings menu cannot run a Lua bind, so it stands for the plain
--- dispatch there and keeps its row.
-o.bind_commands[toggle_split] = "hyprctl dispatch togglesplit"
+-- The keybindings menu cannot run a Lua bind, so it runs the layout dispatch
+-- directly, without the dwindle guard, and keeps its row.
+o.bind_commands[toggle_split] = "hyprctl dispatch 'hl.dsp.layout(\"togglesplit\")'"
 o.bind("SUPER + J", "Toggle window split", toggle_split)
 o.bind("SUPER + P", "Pseudo window", hl.dsp.window.pseudo())
 o.bind("SUPER + T", "Toggle window floating/tiling", hl.dsp.window.float({ action = "toggle" }))

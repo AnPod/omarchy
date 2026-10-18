@@ -91,9 +91,9 @@ print(string.format("dispatch floating %d", press("unknown")))
 print(string.format("dispatch none %d", press(nil)))
 
 -- The keybindings menu runs a Lua bind through o.bind_commands; the fallback
--- must stay the plain dispatch, or the row loses its command.
-assert(o.bind_commands[bind.dispatcher] == "hyprctl dispatch togglesplit",
-  "the keybindings menu fallback stays the plain togglesplit dispatch")
+-- runs the layout dispatch directly, without the dwindle guard.
+assert(o.bind_commands[bind.dispatcher] == "hyprctl dispatch 'hl.dsp.layout(\"togglesplit\")'",
+  "the keybindings menu fallback runs the togglesplit layout dispatch directly")
 print("menu-fallback ok")
 LUA
 }
