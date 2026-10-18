@@ -82,6 +82,8 @@ run_remove no
   fail "Declining the Battle.net removal prompt keeps the desktop entry"
 grep -qF 'battlenet.removePrefix' "$sandbox/gum.log" ||
   fail "Battle.net removal asks before deleting anything"
+grep -qF -- '--default=false' "$sandbox/gum.log" ||
+  fail "Battle.net removal prefix prompt defaults to no"
 
 : >"$sandbox/gum.log"
 seed_sandbox

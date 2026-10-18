@@ -10,7 +10,7 @@ echo
 # Deleting the prefix takes Battle.net and everything installed inside it with
 # it, including games a tool like Lutris manages there, so nothing is removed
 # before the user agrees to exactly that.
-if ! gum confirm --affirmative "$(omarchy-i18n common.yes)" --negative "$(omarchy-i18n common.no)" "$(omarchy-i18n battlenet.removePrefix)"; then
+if ! gum confirm --default=false --affirmative "$(omarchy-i18n common.yes)" --negative "$(omarchy-i18n common.no)" "$(omarchy-i18n battlenet.removePrefix)"; then
   echo "$(omarchy-i18n battlenet.removeCancelled)"
   exit 0
 fi
