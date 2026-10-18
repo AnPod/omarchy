@@ -33,7 +33,7 @@ hostile_script=$(node "$gen_dir/hostile.js")
 # Runs the batch, answering rows on one line and the batch's status last.
 batch() {
   local status=0 output
-  output=$("$@" bash -e -c "$hostile_script" 2>/dev/null | sort | tr '\n' ' ') || status=$?
+  output=$("$@" bash -eu -c "$hostile_script" 2>/dev/null | sort | tr '\n' ' ') || status=$?
   printf '%sstatus=%s' "$output" "$status"
 }
 
