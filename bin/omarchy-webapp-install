@@ -64,7 +64,7 @@ download_icon() {
   # it read WebP/ICO data through the .png name's PNG reader. A conversion
   # that fails drops the file so the caller's next icon source still gets
   # its try, rather than leaving a blank icon behind.
-  local ext
+  local ext frame
   case $mime in
   image/png) return 0 ;;
   image/webp) ext=webp ;;
@@ -79,7 +79,15 @@ download_icon() {
     return 1
     ;;
   esac
-  magick "$ext:$2" "png:$2" 2>/dev/null || { rm -f "$2"; return 1; }
+
+  # A favicon .ico holds several sizes and a GIF can animate; magick writes each
+  # frame to its own -N.png, so convert only the largest (the first among equals).
+  # fx prints large areas as 1.04858e+06, which only sort -g reads as a number.
+  frame=$(magick identify -format '%[fx:w*h] %p\n' "$ext:$2" 2>/dev/null | sort -k1,1gr -k2,2n | head -1 | cut -d' ' -f2)
+  if [[ -z $frame ]] || ! magick "$ext:$2[$frame]" "png:$2" 2>/dev/null; then
+    rm -f "$2"
+    return 1
+  fi
 }
 
 # Chromium --app= treats javascript:, file:, and data: as a document to

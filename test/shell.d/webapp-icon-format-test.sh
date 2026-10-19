@@ -68,6 +68,24 @@ install_with_icon "$tmpdir/icon.ico" "Ico App"
   fail "a downloaded ICO icon is saved as PNG data" "$(file "$icon_dir/ico-app.png" 2>&1 || true)"
 pass "a downloaded ICO icon is saved as real PNG data"
 
+# A favicon .ico usually carries several sizes, smallest first here (1x1, 2x2).
+# The largest becomes the icon, and no per-frame -N.png files are left beside it.
+printf 'AAABAAIAAQEAAAEAIAAwAAAAJgAAAAICAAABACAAQAAAAFYAAAAoAAAAAQAAAAIAAAABACAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAD//wAAAAAoAAAAAgAAAAQAAAABACAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAA/wAA//8AAP//AAD//wAA/wAAAAAAAAAA' | base64 -d >"$tmpdir/multi.ico"
+install_with_icon "$tmpdir/multi.ico" "Multi App"
+[[ $(file -b "$icon_dir/multi-app.png") == "PNG image data, 2 x 2,"* ]] ||
+  fail "a multi-size ICO icon is saved as its largest size, as PNG data" "$(file "$icon_dir/multi-app.png" 2>&1 || true)"
+[[ $(ls "$icon_dir") == "multi-app.png" ]] ||
+  fail "a multi-size ICO icon leaves only one file behind" "$(ls "$icon_dir")"
+pass "a multi-size ICO icon is saved as its largest size, alone"
+
+# Past a million pixels magick prints the area as 1.04858e+06, which must still
+# outrank a 256x256 frame's plain 65536.
+magick -size 256x256 xc:blue -size 1024x1024 xc:red "gif:$tmpdir/big.gif"
+install_with_icon "$tmpdir/big.gif" "Big App"
+[[ $(file -b "$icon_dir/big-app.png") == "PNG image data, 1024 x 1024,"* ]] ||
+  fail "a frame past a million pixels is still the largest" "$(file "$icon_dir/big-app.png" 2>&1 || true)"
+pass "a frame past a million pixels is still the largest"
+
 # A genuine PNG passes through untouched.
 before=$(sha256sum "$tmpdir/icon.png" | cut -d' ' -f1)
 install_with_icon "$tmpdir/icon.png" "Png App"
