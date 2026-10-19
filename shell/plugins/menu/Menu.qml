@@ -1007,7 +1007,13 @@ Item {
   }
 
   function openRoute(initialMenu) {
-    var id = root.resolveRoute(initialMenu)
+    var id = MenuModel.routeTarget(root.items, root.itemOrder, root.whenResults, initialMenu)
+    // The route resolved to an entry the `when` guards hid: a summon must not
+    // run or open it, the same way the rendered row list never shows it.
+    if (!id) {
+      root.cancel()
+      return "hidden"
+    }
     var entry = root.items[id]
     // If the resolved id is an action (i.e. the user invoked an alias for
     // a leaf, e.g. `omarchy menu summon screenrecord-stop`), run it directly
