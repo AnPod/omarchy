@@ -75,12 +75,128 @@ assertEqual(
   'summon keeps opening root for an empty route'
 )
 
-assert(
-  /function openRoute\(initialMenu\) \{[\s\S]*?MenuModel\.routeTarget\(root\.items, root\.itemOrder, root\.whenResults, initialMenu\)[\s\S]*?return "hidden"/.test(menuQml),
-  'openRoute routes through the when-guard check before running or opening'
-)
-assert(
-  !/function openRoute\(initialMenu\) \{[\s\S]*?root\.resolveRoute\(initialMenu\)/.test(menuQml),
-  'openRoute no longer resolves past the visibility check'
-)
+const vm = require('vm')
+
+function extract(signature) {
+  const start = menuQml.indexOf(`  ${signature}`)
+  assert(start >= 0, `found ${signature} in Menu.qml`)
+  const end = menuQml.indexOf('\n  }', start)
+  assert(end > start, `found the end of ${signature} in Menu.qml`)
+  return menuQml.slice(start, end + '\n  }'.length)
+}
+
+const guardStart = menuQml.indexOf('    id: guardProc')
+const guardExitedMatch = menuQml.slice(guardStart).match(/onExited: function\(exitCode, exitStatus\) \{([\s\S]*?)\n    \}/)
+assert(guardExitedMatch, 'found guardProc.onExited in Menu.qml')
+const harnessSource = `${extract('function openRoute(')}\n${extract('function evaluateGuards(')}\nfunction onGuardExited(exitCode, exitStatus) {${guardExitedMatch[1]}\n}`
+
+function createHarness(initialWhen) {
+  const actions = []
+  const openedMenus = []
+  let cancels = 0
+  const deferred = []
+  const guardProc = { running: false, collected: '', command: null }
+  const host = {
+    items,
+    itemOrder: order,
+    whenResults: { ...initialWhen },
+    checkedResults: {},
+    disabledResults: {},
+    guardsPending: false,
+    pendingRoute: '',
+    pendingInitialMenu: 'root',
+    opened: false,
+    cancel() {
+      host.pendingRoute = ''
+      cancels += 1
+    },
+    runAction(action) {
+      actions.push(action)
+    },
+    openExistingMenu(id, skipGuards) {
+      host.pendingRoute = ''
+      openedMenus.push(id)
+      if (!skipGuards) host.evaluateGuards()
+    },
+    rebuildDisplay() {}
+  }
+  const scope = {
+    root: host,
+    MenuModel: menu,
+    guardProc,
+    Qt: { callLater: fn => deferred.push(fn) }
+  }
+  vm.createContext(scope)
+  vm.runInContext(harnessSource, scope)
+  host.openRoute = scope.openRoute
+  host.evaluateGuards = scope.evaluateGuards
+  const finishGuards = (lines, exitCode = 0, exitStatus = 0) => {
+    guardProc.collected = lines.join('\n')
+    scope.onGuardExited(exitCode, exitStatus)
+    guardProc.running = false
+    while (deferred.length) deferred.shift()()
+  }
+  return { host, guardProc, actions, openedMenus, cancels: () => cancels, finishGuards }
+}
+
+{
+  const h = createHarness({ 'record.stop': false })
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'hidden action summon refreshes guards before deciding')
+  assert(h.guardProc.running, 'hidden action summon starts a guard evaluation')
+  assertDeepEqual(h.actions, [], 'hidden action does not run while guard refresh is in flight')
+  assertDeepEqual(h.openedMenus, [], 'hidden action does not open a menu while guard refresh is in flight')
+  assertEqual(h.cancels(), 0, 'hidden action waits for guard refresh before cancelling')
+  h.finishGuards(['record.stop:w:0'])
+  assertEqual(h.cancels(), 1, 'hidden action cancels once refreshed guard is still false')
+  assertDeepEqual(h.actions, [], 'hidden action never runs its command when refreshed guard is false')
+  assertDeepEqual(h.openedMenus, [], 'hidden action never opens a menu when refreshed guard is false')
+}
+
+{
+  const h = createHarness({ vm: false })
+  assertEqual(h.host.openRoute('vm'), 'pending', 'hidden submenu summon refreshes guards before deciding')
+  h.finishGuards(['vm:w:0'])
+  assertEqual(h.cancels(), 1, 'hidden submenu cancels once refreshed guard is still false')
+  assertDeepEqual(h.openedMenus, [], 'hidden submenu never opens when refreshed guard is false')
+  assertDeepEqual(h.actions, [], 'hidden submenu runs no action when refreshed guard is false')
+}
+
+{
+  const h = createHarness({ 'record.stop': false })
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'stale false action guard triggers a refresh on summon')
+  h.finishGuards(['record.stop:w:1'])
+  assertDeepEqual(h.actions, ['omarchy-screenrecord-stop'], 'action summon runs once refreshed guard becomes true')
+  assertDeepEqual(h.openedMenus, [], 'action summon does not open a submenu when running the action')
+  assertEqual(h.cancels(), 1, 'action summon closes the menu before running the action')
+}
+
+{
+  const h = createHarness({ vm: false })
+  assertEqual(h.host.openRoute('vm'), 'pending', 'stale false submenu guard triggers a refresh on summon')
+  h.finishGuards(['vm:w:1'])
+  assertDeepEqual(h.openedMenus, ['vm'], 'submenu summon opens the menu once refreshed guard becomes true')
+  assertDeepEqual(h.actions, [], 'submenu summon runs no action')
+  assertEqual(h.cancels(), 0, 'submenu summon does not cancel when refreshed guard becomes true')
+  assert(!h.guardProc.running, 'opening after a guard refresh does not immediately spawn a duplicate guard batch')
+}
+
+{
+  const h = createHarness({ 'jump.hidden': false, vm: false })
+  assertEqual(h.host.openRoute('jump.hidden'), 'pending', 'stale false link guard triggers a refresh on summon')
+  h.finishGuards(['jump.hidden:w:1', 'vm:w:1'])
+  assertDeepEqual(h.openedMenus, ['vm'], 'link summon follows its target once refreshed guards become true')
+  assertEqual(h.cancels(), 0, 'link summon does not cancel when refreshed guards become true')
+}
+
+{
+  const h = createHarness({ 'record.stop': false })
+  h.guardProc.running = true
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'summon during an in-flight guard batch waits for a fresh evaluation')
+  assert(h.host.guardsPending, 'summon queues a fresh guard evaluation behind the in-flight batch')
+  h.finishGuards(['record.stop:w:0'])
+  assertEqual(h.cancels(), 0, 'stale in-flight batch does not cancel the pending summon')
+  assert(h.guardProc.running, 'queued guard evaluation starts after the in-flight batch exits')
+  h.finishGuards(['record.stop:w:1'])
+  assertDeepEqual(h.actions, ['omarchy-screenrecord-stop'], 'queued guard evaluation lets the newly valid summon through')
+}
 JS

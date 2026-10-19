@@ -935,12 +935,14 @@ Item {
   }
 
   function cancel() {
+    root.pendingRoute = ""
     if (root.dmenuActive) root.finishRequest(null)
     opened = false
     filterText = ""
   }
 
-  function openExistingMenu(initialMenu) {
+  function openExistingMenu(initialMenu, skipGuards) {
+    root.pendingRoute = ""
     requestSerial += 1
     mode = "menu"
     requestActive = false
@@ -952,7 +954,7 @@ Item {
     selectedIndex = 0
     cursorActive = true
     root.disarmPointer()
-    root.evaluateGuards()
+    if (!skipGuards) root.evaluateGuards()
     opened = true
     rebuildDisplay()
     invalidateVolatileProvider(activeMenu)
@@ -965,6 +967,7 @@ Item {
   }
 
   function openDmenu(payload) {
+    root.pendingRoute = ""
     requestSerial += 1
     mode = payload.mode === "input" ? "input" : "select"
     dmenuPrompt = String(payload.prompt || (mode === "input" ? Commons.I18n.t("menu.inputPrompt") : Commons.I18n.t("menu.selectPrompt")))
@@ -1006,11 +1009,20 @@ Item {
     return MenuModel.resolveRoute(root.items, root.itemOrder, input)
   }
 
-  function openRoute(initialMenu) {
+  function openRoute(initialMenu, refreshed) {
+    root.pendingRoute = ""
     var id = MenuModel.routeTarget(root.items, root.itemOrder, root.whenResults, initialMenu)
     // The route resolved to an entry the `when` guards hid: a summon must not
     // run or open it, the same way the rendered row list never shows it.
+    // Refresh the guards first so a condition that became true while the menu
+    // was idle (e.g. a recording started) can let the route through.
     if (!id) {
+      if (!refreshed) {
+        root.pendingRoute = String(initialMenu || "root")
+        root.evaluateGuards()
+        if (guardProc.running || root.guardsPending) return "pending"
+        return root.openRoute(initialMenu, true)
+      }
       root.cancel()
       return "hidden"
     }
@@ -1026,7 +1038,7 @@ Item {
     // If it's a link (a redirect to another menu), follow the link.
     if (entry && entry.kind === "link" && entry.target) id = entry.target
     root.pendingInitialMenu = id
-    root.openExistingMenu(id)
+    root.openExistingMenu(id, refreshed)
     return "ok"
   }
 
@@ -1196,6 +1208,7 @@ Item {
   property var checkedResults: ({})    // id → true|false (show ✓)
   property var disabledResults: ({})   // id → true|false (dim, skip cursor)
   property bool guardsPending: false
+  property string pendingRoute: ""
 
   function evaluateGuards() {
     // Process ignores a command change while it is running, and `collected`
@@ -1234,6 +1247,7 @@ Item {
       // Keep the last complete set rather than let a half-read one through.
       // A signal leaves the exit code at 0, so the status is what tells us.
       if (exitCode !== 0 || exitStatus !== 0) {
+        if (!root.guardsPending && root.pendingRoute) root.openRoute(root.pendingRoute, true)
         if (root.guardsPending) Qt.callLater(function() { root.evaluateGuards() })
         return
       }
@@ -1261,6 +1275,7 @@ Item {
       root.checkedResults = nextChecked
       root.disabledResults = nextDisabled
       if (root.opened) root.rebuildDisplay()
+      if (!root.guardsPending && root.pendingRoute) root.openRoute(root.pendingRoute, true)
       // Run the evaluation that had to stand aside. Deferred by a turn so the
       // process is settled before its command is set again.
       if (root.guardsPending) Qt.callLater(function() { root.evaluateGuards() })
