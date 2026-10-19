@@ -45,6 +45,12 @@ out=$(list --json)
 pass "--json output starts with the payload, not the warning"
 
 # A clean payload keeps working.
+cat >"$STUB_DIR/omarchy-shell" <<'STUB'
+#!/bin/bash
+cat "$FAKE_PLUGINS"
+STUB
+chmod +x "$STUB_DIR/omarchy-shell"
+
 cat >"$TMPDIR/plugins.json" <<'JSON'
 [
   {"id": "acme.weather", "name": "Weather", "kinds": ["bar-widget"], "enabled": false, "firstParty": false}
@@ -53,6 +59,8 @@ JSON
 
 out=$(list)
 [[ $out == *"acme.weather"* ]] || fail "a clean payload still lists its plugin" "$out"
+out=$(list --json)
+[[ $(jq -r '.[0].id' <<<"$out") == "acme.weather" ]] || fail "a clean payload passes through --json whole" "$out"
 pass "a clean payload still lists its plugin"
 
 # No JSON at all is an error, not an empty plugin list.
