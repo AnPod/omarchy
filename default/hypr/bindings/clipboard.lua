@@ -42,8 +42,19 @@ local function universal_clipboard_shortcut(default_mods, default_key, terminal_
   end
 end
 
-o.bind("SUPER + A", "Select all", send_shortcut_once("CTRL", "A"))
-o.bind("SUPER + C", "Universal copy", universal_clipboard_shortcut("CTRL", "C", "CTRL SHIFT", "C"))
-o.bind("SUPER + V", "Universal paste", universal_clipboard_shortcut("CTRL", "V", "CTRL SHIFT", "V"))
-o.bind("SUPER + X", "Universal cut", send_shortcut_once("CTRL", "X"))
+-- Keys are sent as physical keycodes ("code:N", evdev keycode + 8, the same
+-- convention the other bindings files use). A keysym name is resolved against
+-- the active layout, so on a non-Latin layout (us,ru for example) there is no
+-- Latin "C" keysym and send_key_state fails with "key not found". Keycodes
+-- work under every layout.
+-- https://github.com/omacom/omarchy/issues/16009
+local SELECT_ALL_KEYCODE = "code:38" -- A
+local COPY_KEYCODE = "code:54" -- C
+local PASTE_KEYCODE = "code:55" -- V
+local CUT_KEYCODE = "code:53" -- X
+
+o.bind("SUPER + A", "Select all", send_shortcut_once("CTRL", SELECT_ALL_KEYCODE))
+o.bind("SUPER + C", "Universal copy", universal_clipboard_shortcut("CTRL", COPY_KEYCODE, "CTRL SHIFT", COPY_KEYCODE))
+o.bind("SUPER + V", "Universal paste", universal_clipboard_shortcut("CTRL", PASTE_KEYCODE, "CTRL SHIFT", PASTE_KEYCODE))
+o.bind("SUPER + X", "Universal cut", send_shortcut_once("CTRL", CUT_KEYCODE))
 o.bind("SUPER + CTRL + V", "Clipboard manager", { panel = "omarchy.clipboard" })
