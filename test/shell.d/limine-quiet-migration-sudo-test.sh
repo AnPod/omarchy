@@ -40,14 +40,18 @@ sudo_log() { cat "$test_dir/sudo.log"; }
 # stat'ed as the user, and sudo -v prompts even though sudo itself is
 # passwordless. omarchy-migrate runs a migration with bash -euo pipefail, and
 # so does run: the failed authorization used to abort the whole update there.
-mkdir "$test_dir/esp"
-printf 'timeout: 3\n' >"$test_dir/esp/limine.conf"
-chmod 000 "$test_dir/esp"
-run "$test_dir/esp/limine.conf"
-[[ $(sudo_log) != *' -v'* ]] || fail "the migration still authorizes with sudo -v"
-grep -q '^true$' "$test_dir/sudo.log" || fail "the migration did not authorize by running a command"
-grep -q '^test -f' "$test_dir/sudo.log" || fail "the migration did not check the menu through sudo before giving up"
-pass "passwordless sudo authorizes by command and an unreadable menu is left pending, not fatal"
+if (( $(id -u) == 0 )); then
+  echo "ok - passwordless sudo authorizes by command and an unreadable menu is left pending, not fatal # SKIP"
+else
+  mkdir "$test_dir/esp"
+  printf 'timeout: 3\n' >"$test_dir/esp/limine.conf"
+  chmod 000 "$test_dir/esp"
+  run "$test_dir/esp/limine.conf"
+  [[ $(sudo_log) != *' -v'* ]] || fail "the migration still authorizes with sudo -v"
+  grep -q '^true$' "$test_dir/sudo.log" || fail "the migration did not authorize by running a command"
+  grep -q '^test -f' "$test_dir/sudo.log" || fail "the migration did not check the menu through sudo before giving up"
+  pass "passwordless sudo authorizes by command and an unreadable menu is left pending, not fatal"
+fi
 
 # An unreadable-but-existing menu behind a readable ESP: the migration edits it.
 mkdir -p "$test_dir/esp2"

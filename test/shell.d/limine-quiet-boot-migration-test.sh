@@ -14,7 +14,7 @@ test_dir=$(mktemp -d)
 trap 'rm -rf "$test_dir"' EXIT
 stub_bin="$test_dir/bin"
 mkdir -p "$stub_bin"
-printf '#!/bin/bash\n[[ ${SUDO_DENY:-} == 1 && ${1:-} == -v ]] && exit 1\n[[ ${1:-} == -v ]] && exit 0\nexec "$@"\n' >"$stub_bin/sudo"
+printf '#!/bin/bash\n[[ ${SUDO_DENY:-} == 1 && ${1:-} == true ]] && exit 1\n[[ ${1:-} == -v ]] && exit 0\nexec "$@"\n' >"$stub_bin/sudo"
 chmod +x "$stub_bin/sudo"
 
 conf="$test_dir/limine.conf"
