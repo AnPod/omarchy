@@ -80,6 +80,8 @@ run_remove no
   fail "Declining the Battle.net removal prompt keeps the prefix"
 [[ -f "$sandbox/home/.local/share/applications/battlenet.desktop" ]] ||
   fail "Declining the Battle.net removal prompt keeps the desktop entry"
+[[ -f "$sandbox/home/.cache/omarchy/Battle.net-Setup.exe" ]] ||
+  fail "Declining the Battle.net removal prompt keeps the cached installer"
 grep -qF 'battlenet.removePrefix' "$sandbox/gum.log" ||
   fail "Battle.net removal asks before deleting anything"
 grep -qF -- '--default=false' "$sandbox/gum.log" ||
