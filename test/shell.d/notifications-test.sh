@@ -9,6 +9,7 @@ const fs = require('fs')
 const notifications = requireFromRoot('shell/plugins/notifications/NotificationLogic.js')
 
 assert(notifications.isChromiumDerived('Brave Browser', ''), 'notifications detect chromium-derived apps by name')
+assert(notifications.isChromiumDerived('Microsoft Edge', ''), 'notifications detect Microsoft Edge by name')
 assert(notifications.isChromiumDerived('', 'microsoft-edge'), 'notifications detect chromium-derived apps by icon')
 assert(!notifications.isChromiumDerived('Slack', ''), 'notifications do not treat unrelated apps as chromium-derived')
 
@@ -167,6 +168,12 @@ assertEqual(
   notifications.sanitizeBody('<a href="https://example.com">example.com</a> Message body', 'Chromium', ''),
   'Message body',
   'notifications strip chromium leading origin links'
+)
+
+assertEqual(
+  notifications.sanitizeBody('<a href="https://outlook.office.com/">outlook.office.com</a>\nMessage body', 'Microsoft Edge', ''),
+  'Message body',
+  'notifications strip Microsoft Edge leading origin links'
 )
 
 assertEqual(

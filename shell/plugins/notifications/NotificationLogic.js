@@ -2,7 +2,7 @@ function isChromiumDerived(app, appIcon) {
   var source = (String(app || "") + "\n" + String(appIcon || "")).toLowerCase()
   return source.indexOf("chrom") >= 0 || source.indexOf("brave") >= 0 ||
          source.indexOf("vivaldi") >= 0 || source.indexOf("microsoft-edge") >= 0 ||
-         source.indexOf("opera") >= 0
+         source.indexOf("microsoft edge") >= 0 || source.indexOf("opera") >= 0
 }
 
 // True when a `<...>` run is an image tag, so the name is read the way Qt's
