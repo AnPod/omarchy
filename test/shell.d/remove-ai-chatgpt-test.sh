@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 source "$(dirname -- "${BASH_SOURCE[0]}")/base-test.sh"
 
 # Remove > AI > ChatGPT must take ~/.config/Codex and ~/.cache/Codex with it
@@ -35,6 +37,7 @@ readonly_dirs=(
 )
 mkdir -p "${readonly_dirs[@]}"
 printf 'module.exports = {}\n' >"${readonly_dirs[1]}/index.js"
+printf 'cache\n' >"${readonly_dirs[3]}/cache.dat"
 
 if ! chmod 500 "${readonly_dirs[@]}"; then
   skip "cannot create read-only directories on this filesystem; skipping read-only Codex config removal"
