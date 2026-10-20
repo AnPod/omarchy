@@ -9,9 +9,16 @@ omarchy-pkg-drop openai-codex-desktop
 
 # Not ~/.cache/codex-runtimes: the Codex CLI resolves its own runtime under
 # there, and it ships in a different package that survives this one.
-rm -rf \
-  "$HOME/.config/Codex" \
-  "$HOME/.cache/Codex"
+#
+# The app's artifact runtime extracts its files into directories the user owns
+# but cannot write to (dr-x------), and rm -rf cannot delete files inside a
+# directory without write permission, so make every directory writable first.
+for dir in "$HOME/.config/Codex" "$HOME/.cache/Codex"; do
+  if [[ -d $dir ]]; then
+    chmod -R u+w "$dir"
+    rm -rf "$dir"
+  fi
+done
 
 echo ""
 echo "ChatGPT has been removed."
