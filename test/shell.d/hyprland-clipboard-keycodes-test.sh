@@ -4,7 +4,9 @@
 # "X", "A") to send_key_state, and Hyprland resolves the name against the active
 # layout. On a non-Latin layout (us,ru for example) there is no Latin "C"
 # keysym, so every press fails with "send_key_state: key not found". The binds
-# must send physical keycodes ("code:N") instead, which work under any layout.
+# must send physical keycodes ("code:N") resolved from the configured Latin
+# layout instead, so they work under any active layout without sending US
+# positions on AZERTY or Dvorak.
 
 set -euo pipefail
 
@@ -12,10 +14,20 @@ source "$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)/base-test.sh"
 
 require_command lua
 
-HOME="$(mktemp -d)" OMARCHY_PATH="$ROOT" lua <<'LUA'
+tmpdir=$(mktemp -d)
+trap 'rm -rf "$tmpdir"' EXIT
+mkdir -p "$tmpdir/.config/omarchy"
+
+have_xkb=0
+[[ -r /usr/share/X11/xkb/keycodes/evdev && -r /usr/share/X11/xkb/symbols/fr ]] && have_xkb=1
+
+HAVE_XKB="$have_xkb" HOME="$tmpdir" XDG_CONFIG_HOME="$tmpdir/.config" OMARCHY_PATH="$ROOT" lua <<'LUA'
 package.path = os.getenv("OMARCHY_PATH") .. "/?.lua;" .. package.path
 
+local config_dir = os.getenv("XDG_CONFIG_HOME") .. "/omarchy"
 local sends, binds = {}, {}
+local window = { tags = {} }
+
 hl = setmetatable({
   dsp = setmetatable({}, {
     __index = function(_, name)
@@ -28,30 +40,19 @@ hl = setmetatable({
   dispatch = function(dispatcher)
     table.insert(sends, dispatcher)
   end,
+  get_active_window = function()
+    return window
+  end,
 }, {
   __index = function()
     return function() return {} end
   end,
 })
 
-local window = { tags = {} }
-hl.get_active_window = function()
-  return window
-end
-
 o = {
   bind = function(keys, description, dispatcher)
     table.insert(binds, { keys = keys, description = description, dispatcher = dispatcher })
   end,
-}
-
-require("default.hypr.bindings.clipboard")
-
-local expected = {
-  ["Select all"] = { mods = "CTRL", key = "code:38" },
-  ["Universal copy"] = { mods = "CTRL", key = "code:54", terminal_mods = "CTRL SHIFT" },
-  ["Universal paste"] = { mods = "CTRL", key = "code:55", terminal_mods = "CTRL SHIFT" },
-  ["Universal cut"] = { mods = "CTRL", key = "code:53" },
 }
 
 local function sends_since(fn)
@@ -71,31 +72,75 @@ local function keys_sent(bind)
   return keys, entries
 end
 
-local by_description = {}
-for _, bind in ipairs(binds) do
-  by_description[bind.description] = bind
+local function write_layout(content)
+  local file = assert(io.open(config_dir .. "/keyboard-layouts", "w"))
+  file:write(content)
+  file:close()
 end
 
-for description, want in pairs(expected) do
-  local bind = by_description[description]
-  assert(bind, description .. " is bound")
+local function check_layout(name, layout_config, expected)
+  write_layout(layout_config)
+  binds = {}
+  package.loaded["default.hypr.bindings.clipboard"] = nil
+  require("default.hypr.bindings.clipboard")
 
-  window.tags = {}
-  local keys = keys_sent(bind)
-  assert(#keys == 2, description .. " sends a down and an up")
-  assert(keys[1] == want.key .. "@down" and keys[2] == want.key .. "@up",
-    description .. " sends " .. want.key .. " (got " .. keys[1] .. ", " .. keys[2] .. ")")
+  local by_description = {}
+  for _, bind in ipairs(binds) do
+    by_description[bind.description] = bind
+  end
 
-  window.tags = { "terminal*" }
-  keys = keys_sent(bind)
-  assert(#keys == 2, description .. " sends a down and an up to terminals")
-  assert(keys[1] == want.key .. "@down" and keys[2] == want.key .. "@up",
-    description .. " keeps the same keycode for terminals (got " .. keys[1] .. ", " .. keys[2] .. ")")
+  for description, want in pairs(expected) do
+    local label = name .. " " .. description
+    local bind = by_description[description]
+    assert(bind, label .. " is bound")
 
-  window.tags = {}
-  local entries = sends_since(bind.dispatcher)
-  assert(entries[1].arg.mods == want.mods, description .. " sends " .. want.mods)
+    window.tags = {}
+    local keys, entries = keys_sent(bind)
+    assert(#keys == 2, label .. " sends a down and an up")
+    assert(keys[1] == want.key .. "@down" and keys[2] == want.key .. "@up",
+      label .. " sends " .. want.key .. " (got " .. keys[1] .. ", " .. keys[2] .. ")")
+    assert(entries[1].arg.mods == want.mods and entries[2].arg.mods == want.mods,
+      label .. " sends " .. want.mods)
+
+    window.tags = { "terminal*" }
+    local terminal_mods = want.terminal_mods or want.mods
+    keys, entries = keys_sent(bind)
+    assert(#keys == 2, label .. " sends a down and an up to terminals")
+    assert(keys[1] == want.key .. "@down" and keys[2] == want.key .. "@up",
+      label .. " keeps the same keycode for terminals (got " .. keys[1] .. ", " .. keys[2] .. ")")
+    assert(entries[1].arg.mods == terminal_mods and entries[2].arg.mods == terminal_mods,
+      label .. " sends " .. terminal_mods .. " to terminals")
+  end
 end
+
+check_layout("US", "XKBLAYOUT=us,ru\n", {
+  ["Select all"] = { mods = "CTRL", key = "code:38" },
+  ["Universal copy"] = { mods = "CTRL", key = "code:54", terminal_mods = "CTRL SHIFT" },
+  ["Universal paste"] = { mods = "CTRL", key = "code:55", terminal_mods = "CTRL SHIFT" },
+  ["Universal cut"] = { mods = "CTRL", key = "code:53" },
+})
+
+-- The AZERTY and Dvorak cases read the layouts from xkeyboard-config.
+if os.getenv("HAVE_XKB") ~= "1" then
+  print("ok - AZERTY and Dvorak clipboard keycodes # SKIP xkeyboard-config not installed")
+  return
+end
+
+-- On AZERTY, A is <AD01> (code:24) and <AC01> (code:38) is Q, so Super + A
+-- must send code:24 rather than Ctrl + Q.
+check_layout("AZERTY", "XKBLAYOUT=fr,ru\n", {
+  ["Select all"] = { mods = "CTRL", key = "code:24" },
+  ["Universal copy"] = { mods = "CTRL", key = "code:54", terminal_mods = "CTRL SHIFT" },
+  ["Universal paste"] = { mods = "CTRL", key = "code:55", terminal_mods = "CTRL SHIFT" },
+  ["Universal cut"] = { mods = "CTRL", key = "code:53" },
+})
+
+check_layout("Dvorak", "XKBLAYOUT=us\nXKBVARIANT=dvorak\n", {
+  ["Select all"] = { mods = "CTRL", key = "code:38" },
+  ["Universal copy"] = { mods = "CTRL", key = "code:31", terminal_mods = "CTRL SHIFT" },
+  ["Universal paste"] = { mods = "CTRL", key = "code:60", terminal_mods = "CTRL SHIFT" },
+  ["Universal cut"] = { mods = "CTRL", key = "code:56" },
+})
 LUA
 
 # The keycode strings never regress to layout-resolved keysym names.

@@ -1,3 +1,5 @@
+local keyboard = require("default.hypr.keyboard")
+
 -- Send with explicit mods to the focused surface by omitting the window target,
 -- so universal clipboard shortcuts reach both normal windows and focused
 -- layer-shell surfaces such as Omarchy panels. A virtual keyboard (wtype) won't
@@ -46,12 +48,95 @@ end
 -- convention the other bindings files use). A keysym name is resolved against
 -- the active layout, so on a non-Latin layout (us,ru for example) there is no
 -- Latin "C" keysym and send_key_state fails with "key not found". Keycodes
--- work under every layout.
+-- work under every layout; resolve them from the configured Latin layout so
+-- layouts like AZERTY and Dvorak send their own A/C/V/X keys rather than US
+-- positions.
 -- https://github.com/omacom/omarchy/issues/16009
-local SELECT_ALL_KEYCODE = "code:38" -- A
-local COPY_KEYCODE = "code:54" -- C
-local PASTE_KEYCODE = "code:55" -- V
-local CUT_KEYCODE = "code:53" -- X
+local us_keycodes = {
+  A = "code:38",
+  C = "code:54",
+  V = "code:55",
+  X = "code:53",
+}
+
+local function layout_keycodes()
+  local selected = keyboard.selected()
+  local layout = (selected.XKBLAYOUT or "us"):match("^[^,]*")
+  local variant = (selected.XKBVARIANT or ""):match("^[^,]*")
+  if layout == "" or (layout == "us" and variant == "") then
+    return us_keycodes
+  end
+
+  local keycodes = {}
+  local evdev = io.open("/usr/share/X11/xkb/keycodes/evdev", "r")
+  if evdev then
+    for line in evdev:lines() do
+      local name, code = line:match("^%s*<([%w_]+)>%s*=%s*(%d+)%s*;")
+      if name then keycodes[name] = tonumber(code) end
+    end
+    evdev:close()
+  end
+
+  local symbols, seen = {}, {}
+  local function load_symbols(file_name, section_name)
+    if not file_name or not file_name:match("^[%w_%-]+$") then return end
+    local id = file_name .. ":" .. (section_name or "")
+    if seen[id] then return end
+    seen[id] = true
+
+    local file = io.open("/usr/share/X11/xkb/symbols/" .. file_name, "r")
+    if not file then return end
+    local content = file:read("*a"):gsub("//[^\n]*", ""):gsub("/%*.-%*/", "")
+    file:close()
+
+    local body
+    for header, name, block in content:gmatch('([%w_%s]-)xkb_symbols%s+"([^"]+)"%s*(%b{})') do
+      if section_name then
+        if name == section_name then body = block; break end
+      elseif header:find("default") or not body then
+        body = block
+        if header:find("default") then break end
+      end
+    end
+    if not body then return end
+
+    for statement in body:sub(2, -2):gsub('(include%s+"[^"]+")', "%1;"):gmatch("[^;]+") do
+      for include in statement:gmatch('include%s+"([^"]+)"') do
+        local inc_file, inc_section = include:match("^([^(]+)%(([^)]+)%)$")
+        load_symbols(inc_file or include, inc_section)
+      end
+      local key_name, symbol = statement:gsub("[%w_]+%s*%b[]%s*=", ""):match("key%s*<([%w_]+)>%s*{.-%[%s*([%w_]+)")
+      if key_name and symbol and symbol ~= "any" and symbol ~= "NoSymbol" then
+        symbols[key_name] = symbol:upper()
+      end
+    end
+  end
+
+  load_symbols(layout, variant ~= "" and variant or nil)
+  if not next(keycodes) or not next(symbols) then
+    return { A = "A", C = "C", V = "V", X = "X" }
+  end
+
+  local by_symbol = {}
+  for key_name, symbol in pairs(symbols) do
+    local code = keycodes[key_name]
+    if code and (not by_symbol[symbol] or code < by_symbol[symbol]) then
+      by_symbol[symbol] = code
+    end
+  end
+
+  local resolved = {}
+  for symbol, fallback in pairs(us_keycodes) do
+    resolved[symbol] = by_symbol[symbol] and ("code:" .. by_symbol[symbol]) or fallback
+  end
+  return resolved
+end
+
+local keycodes = layout_keycodes()
+local SELECT_ALL_KEYCODE = keycodes.A
+local COPY_KEYCODE = keycodes.C
+local PASTE_KEYCODE = keycodes.V
+local CUT_KEYCODE = keycodes.X
 
 o.bind("SUPER + A", "Select all", send_shortcut_once("CTRL", SELECT_ALL_KEYCODE))
 o.bind("SUPER + C", "Universal copy", universal_clipboard_shortcut("CTRL", COPY_KEYCODE, "CTRL SHIFT", COPY_KEYCODE))
