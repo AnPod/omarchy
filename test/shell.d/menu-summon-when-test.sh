@@ -88,7 +88,7 @@ function extract(signature) {
 const guardStart = menuQml.indexOf('    id: guardProc')
 const guardExitedMatch = menuQml.slice(guardStart).match(/onExited: function\(exitCode, exitStatus\) \{([\s\S]*?)\n    \}/)
 assert(guardExitedMatch, 'found guardProc.onExited in Menu.qml')
-const harnessSource = `${extract('function openRoute(')}\n${extract('function evaluateGuards(')}\nfunction onGuardExited(exitCode, exitStatus) {${guardExitedMatch[1]}\n}`
+const harnessSource = `${extract('function applySelected(')}\n${extract('function openRoute(')}\n${extract('function evaluateGuards(')}\nfunction onGuardExited(exitCode, exitStatus) {${guardExitedMatch[1]}\n}`
 
 function createHarness(initialWhen) {
   const actions = []
@@ -124,10 +124,16 @@ function createHarness(initialWhen) {
     root: host,
     MenuModel: menu,
     guardProc,
+    requestSerial: 0,
+    applySerial: 0,
+    opened: false,
+    filterText: '',
+    cancel: () => host.cancel(),
     Qt: { callLater: fn => deferred.push(fn) }
   }
   vm.createContext(scope)
   vm.runInContext(harnessSource, scope)
+  host.applySelected = scope.applySelected
   host.openRoute = scope.openRoute
   host.evaluateGuards = scope.evaluateGuards
   const finishGuards = (lines, exitCode = 0, exitStatus = 0) => {
@@ -198,5 +204,16 @@ function createHarness(initialWhen) {
   assert(h.guardProc.running, 'queued guard evaluation starts after the in-flight batch exits')
   h.finishGuards(['record.stop:w:1'])
   assertDeepEqual(h.actions, ['omarchy-screenrecord-stop'], 'queued guard evaluation lets the newly valid summon through')
+}
+
+{
+  const h = createHarness({ 'record.stop': false })
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'summon waits for guard refresh while menu stays interactive')
+  h.host.applySelected('style.theme', 'omarchy-theme-set')
+  assertEqual(h.host.pendingRoute, '', 'selecting another row clears the waiting summon route')
+  h.finishGuards(['record.stop:w:1'])
+  assertDeepEqual(h.actions, ['omarchy-theme-set'], 'pending summon does not run its action after the user selects another row')
+  assertDeepEqual(h.openedMenus, [], 'pending summon does not reopen a menu after the user selects another row')
+  assertEqual(h.cancels(), 0, 'completed guard refresh does not cancel again after another selection')
 }
 JS

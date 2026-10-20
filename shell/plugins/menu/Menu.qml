@@ -818,6 +818,7 @@ Item {
   }
 
   function setActiveMenu(id, pushHistory, fromPointer) {
+    root.pendingRoute = ""
     panel.freezeCardTop()
     if (!root.item(id)) id = "root"
     if (pushHistory && id !== root.activeMenu) root.navStack = root.navStack.concat([root.activeMenu])
@@ -860,6 +861,7 @@ Item {
         if (picked.itemId === "dmenu.apply") {
           root.applyDmenuSelection(JSON.stringify(MenuModel.dmenuSelections(root.dmenuOptions, root.dmenuSelected)))
         } else {
+          root.pendingRoute = ""
           var value = MenuModel.dmenuValue(root.dmenuOptions[Number(picked.itemId.substring(6))])
           var selected = MenuModel.toggleDmenuSelection(selectionProc.requestedSelection(), value)
           if (root.dmenuOnChange.length > 0) {
@@ -883,6 +885,7 @@ Item {
     } else if (row.kind === "app") {
       var appId = row.appId
       var label = row.label
+      root.pendingRoute = ""
       applySerial = requestSerial
       opened = false
       filterText = ""
@@ -919,6 +922,7 @@ Item {
   }
 
   function applyDmenuSelection(value) {
+    root.pendingRoute = ""
     applySerial = requestSerial
     opened = false
     filterText = ""
@@ -928,6 +932,7 @@ Item {
   function applySelected(id, action) {
     if (!id) { cancel(); return }
 
+    root.pendingRoute = ""
     applySerial = requestSerial
     opened = false
     filterText = ""
