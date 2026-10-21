@@ -83,3 +83,19 @@ if [[ -e $fake_home/.config/Codex || -e $fake_home/.cache/Codex ]]; then
   fail "an ordinary Codex config and cache are gone"
 fi
 pass "an ordinary Codex config and cache are gone"
+
+# A Codex config that is a symlink goes, and its target's permissions do not change.
+linked="$work/linked"
+mkdir -p "$linked/runtime"
+chmod 500 "$linked/runtime"
+ln -s "$linked" "$fake_home/.config/Codex"
+
+if ! run_script; then
+  fail "omarchy-remove-ai-chatgpt exits 0 on a symlinked Codex config"
+fi
+pass "omarchy-remove-ai-chatgpt exits 0 on a symlinked Codex config"
+
+if [[ -L $fake_home/.config/Codex ]] || [[ $(stat -c %a "$linked/runtime") != "500" ]]; then
+  fail "the symlink is removed and its target left untouched" "$(ls -la "$fake_home/.config" "$linked" 2>&1)"
+fi
+pass "the symlink is removed and its target left untouched"
