@@ -207,7 +207,9 @@ function resolveRoute(items, itemOrder, input) {
 function routeTarget(items, itemOrder, whenResults, input) {
   var id = resolveRoute(items, itemOrder, input)
   var entry = item(items, id)
-  if (entry && !isVisible(items, itemOrder, whenResults, entry)) return null
+  // Root carries no guard of its own; before the default rows load it has no
+  // children, and a summon then must still open it.
+  if (entry && id !== "root" && !isVisible(items, itemOrder, whenResults, entry)) return null
   return id
 }
 

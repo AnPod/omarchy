@@ -75,6 +75,13 @@ assertEqual(
   'summon keeps opening root for an empty route'
 )
 
+const rootOnly = { root: menu.normalizeItem('root', { label: 'Go' }) }
+assertEqual(
+  menu.routeTarget(rootOnly, Object.keys(rootOnly), {}, 'root'),
+  'root',
+  'summon opens root before the default rows have loaded'
+)
+
 const vm = require('vm')
 
 function extract(signature) {
@@ -88,7 +95,7 @@ function extract(signature) {
 const guardStart = menuQml.indexOf('    id: guardProc')
 const guardExitedMatch = menuQml.slice(guardStart).match(/onExited: function\(exitCode, exitStatus\) \{([\s\S]*?)\n    \}/)
 assert(guardExitedMatch, 'found guardProc.onExited in Menu.qml')
-const harnessSource = `${extract('function applySelected(')}\n${extract('function openRoute(')}\n${extract('function evaluateGuards(')}\nfunction onGuardExited(exitCode, exitStatus) {${guardExitedMatch[1]}\n}`
+const harnessSource = `${extract('function setFilter(')}\n${extract('function applySelected(')}\n${extract('function openRoute(')}\n${extract('function evaluateGuards(')}\nfunction onGuardExited(exitCode, exitStatus) {${guardExitedMatch[1]}\n}`
 
 function createHarness(initialWhen) {
   const actions = []
@@ -118,7 +125,12 @@ function createHarness(initialWhen) {
       openedMenus.push(id)
       if (!skipGuards) host.evaluateGuards()
     },
-    rebuildDisplay() {}
+    rebuildDisplay() {},
+    disarmPointer() {},
+    loadProvidersForSearch() {},
+    dmenuActive: false,
+    mode: 'menu',
+    filterText: ''
   }
   const scope = {
     root: host,
@@ -129,10 +141,12 @@ function createHarness(initialWhen) {
     opened: false,
     filterText: '',
     cancel: () => host.cancel(),
-    Qt: { callLater: fn => deferred.push(fn) }
+    Qt: { callLater: fn => deferred.push(fn) },
+    panel: { freezeCardTop() {} }
   }
   vm.createContext(scope)
   vm.runInContext(harnessSource, scope)
+  host.setFilter = scope.setFilter
   host.applySelected = scope.applySelected
   host.openRoute = scope.openRoute
   host.evaluateGuards = scope.evaluateGuards
@@ -215,5 +229,37 @@ function createHarness(initialWhen) {
   assertDeepEqual(h.actions, ['omarchy-theme-set'], 'pending summon does not run its action after the user selects another row')
   assertDeepEqual(h.openedMenus, [], 'pending summon does not reopen a menu after the user selects another row')
   assertEqual(h.cancels(), 0, 'completed guard refresh does not cancel again after another selection')
+}
+
+{
+  const h = createHarness({ 'record.stop': false })
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'summon waits for guard refresh while the user types')
+  h.host.setFilter('the')
+  assertEqual(h.host.pendingRoute, '', 'typing a search clears the waiting summon route')
+  h.finishGuards(['record.stop:w:1'])
+  assertDeepEqual(h.actions, [], 'pending summon does not run after the user starts a search')
+}
+
+const unguarded = {}
+for (const id of order) unguarded[id] = { ...items[id], when: '' }
+
+{
+  const h = createHarness({ 'record.stop': false })
+  assertEqual(h.host.openRoute('screenrecord-stop'), 'pending', 'summon waits while the menu reloads')
+  h.host.items = unguarded
+  h.host.guardsPending = true
+  h.finishGuards(['record.stop:w:0'])
+  assertEqual(h.host.pendingRoute, '', 'a reload that leaves no guards still settles the waiting summon')
+  assertDeepEqual(h.actions, ['omarchy-screenrecord-stop'], 'a reload that leaves no guards runs the waiting summon once')
+}
+
+{
+  const h = createHarness({})
+  h.host.items = { ...unguarded, empty: menu.normalizeItem('empty', { label: 'Empty' }) }
+  h.host.itemOrder = order.concat(['empty'])
+  assertEqual(h.host.openRoute('empty'), 'hidden', 'a summon with no guards to refresh settles at once')
+  h.finishGuards([])
+  assertEqual(h.cancels(), 1, 'the deferred retry does not settle a summon the synchronous path already settled')
+  assertDeepEqual(h.openedMenus, [], 'the deferred retry opens nothing after the summon settled')
 }
 JS

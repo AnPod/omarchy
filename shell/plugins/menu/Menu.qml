@@ -808,6 +808,7 @@ Item {
   }
 
   function setFilter(nextFilter) {
+    root.pendingRoute = ""
     panel.freezeCardTop()
     root.filterText = nextFilter
     root.selectedIndex = 0
@@ -1233,6 +1234,9 @@ Item {
       root.whenResults = ({})
       root.checkedResults = ({})
       root.disabledResults = ({})
+      // No batch runs, so no onExited will settle a waiting summon. Deferred so
+      // the openRoute that started this evaluation settles it first.
+      if (root.pendingRoute) Qt.callLater(function() { if (root.pendingRoute) root.openRoute(root.pendingRoute, true) })
       return
     }
     guardProc.collected = ""
