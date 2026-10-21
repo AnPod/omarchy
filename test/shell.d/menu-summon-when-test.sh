@@ -82,6 +82,13 @@ assertEqual(
   'summon opens root before the default rows have loaded'
 )
 
+const guardedRoot = { root: menu.normalizeItem('root', { label: 'Go', when: 'false', action: 'example' }) }
+assertEqual(
+  menu.routeTarget(guardedRoot, Object.keys(guardedRoot), { root: false }, 'root'),
+  null,
+  'summon still refuses a root its own when guard hid'
+)
+
 const vm = require('vm')
 
 function extract(signature) {

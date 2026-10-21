@@ -207,10 +207,11 @@ function resolveRoute(items, itemOrder, input) {
 function routeTarget(items, itemOrder, whenResults, input) {
   var id = resolveRoute(items, itemOrder, input)
   var entry = item(items, id)
-  // Root carries no guard of its own; before the default rows load it has no
-  // children, and a summon then must still open it.
-  if (entry && id !== "root" && !isVisible(items, itemOrder, whenResults, entry)) return null
-  return id
+  if (!entry) return id
+  // Before the default rows load, root has no children; only its own guard
+  // may refuse it, never an empty child list.
+  if (id === "root") return entry.when && whenResults && whenResults.root === false ? null : id
+  return isVisible(items, itemOrder, whenResults, entry) ? id : null
 }
 
 function slugify(value) {
