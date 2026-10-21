@@ -7,8 +7,10 @@ local keyboard = require("default.hypr.keyboard")
 -- The down/up split works around Hyprland send_shortcut sometimes leaving
 -- synthetic key state stuck/repeating.
 -- https://github.com/hyprwm/Hyprland/discussions/14099
-local function send_shortcut_once(mods, key)
+local function send_shortcut_once(mods, key_or_resolver)
   return function()
+    -- Resolve at press time so layout overrides loaded later take effect.
+    local key = type(key_or_resolver) == "function" and key_or_resolver() or key_or_resolver
     hl.dispatch(hl.dsp.send_key_state({ mods = mods, key = key, state = "down" }))
 
     hl.timer(function()
@@ -59,12 +61,28 @@ local us_keycodes = {
   X = "code:53",
 }
 
+local keycodes_by_layout = {}
+
+local function configured_option(name)
+  local value = hl.get_config and hl.get_config(name)
+  if type(value) == "string" and value ~= "" then
+    return value
+  end
+end
+
 local function layout_keycodes()
-  local selected = keyboard.selected()
-  local layout = (selected.XKBLAYOUT or "us"):match("^[^,]*")
-  local variant = (selected.XKBVARIANT or ""):match("^[^,]*")
+  local kb_layout = configured_option("input.kb_layout")
+  local kb_variant = configured_option("input.kb_variant")
+  local selected = (not kb_layout or not kb_variant) and keyboard.selected() or {}
+  local layout = (kb_layout or selected.XKBLAYOUT or "us"):match("^[^,]*")
+  local variant = (kb_variant or selected.XKBVARIANT or ""):match("^[^,]*")
   if layout == "" or (layout == "us" and variant == "") then
     return us_keycodes
+  end
+
+  local cache_key = layout .. ":" .. variant
+  if keycodes_by_layout[cache_key] then
+    return keycodes_by_layout[cache_key]
   end
 
   local keycodes = {}
@@ -114,7 +132,8 @@ local function layout_keycodes()
 
   load_symbols(layout, variant ~= "" and variant or nil)
   if not next(keycodes) or not next(symbols) then
-    return { A = "A", C = "C", V = "V", X = "X" }
+    keycodes_by_layout[cache_key] = { A = "A", C = "C", V = "V", X = "X" }
+    return keycodes_by_layout[cache_key]
   end
 
   local by_symbol = {}
@@ -129,14 +148,20 @@ local function layout_keycodes()
   for symbol, fallback in pairs(us_keycodes) do
     resolved[symbol] = by_symbol[symbol] and ("code:" .. by_symbol[symbol]) or fallback
   end
+  keycodes_by_layout[cache_key] = resolved
   return resolved
 end
 
-local keycodes = layout_keycodes()
-local SELECT_ALL_KEYCODE = keycodes.A
-local COPY_KEYCODE = keycodes.C
-local PASTE_KEYCODE = keycodes.V
-local CUT_KEYCODE = keycodes.X
+local function layout_keycode(symbol)
+  return function()
+    return layout_keycodes()[symbol]
+  end
+end
+
+local SELECT_ALL_KEYCODE = layout_keycode("A")
+local COPY_KEYCODE = layout_keycode("C")
+local PASTE_KEYCODE = layout_keycode("V")
+local CUT_KEYCODE = layout_keycode("X")
 
 o.bind("SUPER + A", "Select all", send_shortcut_once("CTRL", SELECT_ALL_KEYCODE))
 o.bind("SUPER + C", "Universal copy", universal_clipboard_shortcut("CTRL", COPY_KEYCODE, "CTRL SHIFT", COPY_KEYCODE))

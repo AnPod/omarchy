@@ -21,12 +21,13 @@ mkdir -p "$tmpdir/.config/omarchy"
 have_xkb=0
 [[ -r /usr/share/X11/xkb/keycodes/evdev && -r /usr/share/X11/xkb/symbols/fr ]] && have_xkb=1
 
-HAVE_XKB="$have_xkb" HOME="$tmpdir" XDG_CONFIG_HOME="$tmpdir/.config" OMARCHY_PATH="$ROOT" lua <<'LUA'
+HAVE_XKB="$have_xkb" HOME="$tmpdir" XDG_CONFIG_HOME="$tmpdir/.config" OMARCHY_PATH="$ROOT" lua - <<'LUA' || fail "universal clipboard shortcuts resolve keycodes from the effective layout"
 package.path = os.getenv("OMARCHY_PATH") .. "/?.lua;" .. package.path
 
 local config_dir = os.getenv("XDG_CONFIG_HOME") .. "/omarchy"
 local sends, binds = {}, {}
 local window = { tags = {} }
+local config = {}
 
 hl = setmetatable({
   dsp = setmetatable({}, {
@@ -42,6 +43,9 @@ hl = setmetatable({
   end,
   get_active_window = function()
     return window
+  end,
+  get_config = function(key)
+    return config[key]
   end,
 }, {
   __index = function()
@@ -78,12 +82,7 @@ local function write_layout(content)
   file:close()
 end
 
-local function check_layout(name, layout_config, expected)
-  write_layout(layout_config)
-  binds = {}
-  package.loaded["default.hypr.bindings.clipboard"] = nil
-  require("default.hypr.bindings.clipboard")
-
+local function check_binds(name, expected)
   local by_description = {}
   for _, bind in ipairs(binds) do
     by_description[bind.description] = bind
@@ -113,6 +112,15 @@ local function check_layout(name, layout_config, expected)
   end
 end
 
+local function check_layout(name, layout_config, expected)
+  config = {}
+  write_layout(layout_config)
+  binds = {}
+  package.loaded["default.hypr.bindings.clipboard"] = nil
+  require("default.hypr.bindings.clipboard")
+  check_binds(name, expected)
+end
+
 check_layout("US", "XKBLAYOUT=us,ru\n", {
   ["Select all"] = { mods = "CTRL", key = "code:38" },
   ["Universal copy"] = { mods = "CTRL", key = "code:54", terminal_mods = "CTRL SHIFT" },
@@ -128,19 +136,38 @@ end
 
 -- On AZERTY, A is <AD01> (code:24) and <AC01> (code:38) is Q, so Super + A
 -- must send code:24 rather than Ctrl + Q.
-check_layout("AZERTY", "XKBLAYOUT=fr,ru\n", {
+local azerty_expected = {
   ["Select all"] = { mods = "CTRL", key = "code:24" },
   ["Universal copy"] = { mods = "CTRL", key = "code:54", terminal_mods = "CTRL SHIFT" },
   ["Universal paste"] = { mods = "CTRL", key = "code:55", terminal_mods = "CTRL SHIFT" },
   ["Universal cut"] = { mods = "CTRL", key = "code:53" },
-})
+}
 
-check_layout("Dvorak", "XKBLAYOUT=us\nXKBVARIANT=dvorak\n", {
+local dvorak_expected = {
   ["Select all"] = { mods = "CTRL", key = "code:38" },
   ["Universal copy"] = { mods = "CTRL", key = "code:31", terminal_mods = "CTRL SHIFT" },
   ["Universal paste"] = { mods = "CTRL", key = "code:60", terminal_mods = "CTRL SHIFT" },
   ["Universal cut"] = { mods = "CTRL", key = "code:56" },
-})
+}
+
+check_layout("AZERTY", "XKBLAYOUT=fr,ru\n", azerty_expected)
+check_layout("Dvorak", "XKBLAYOUT=us\nXKBVARIANT=dvorak\n", dvorak_expected)
+
+-- Personal overrides in ~/.config/hypr/input.lua are loaded after Omarchy
+-- defaults, so hl.get_config("input.kb_layout") / "input.kb_variant" must take
+-- precedence over keyboard-layouts at key-press time and react to later changes.
+config = {}
+write_layout("XKBLAYOUT=us\n")
+binds = {}
+package.loaded["default.hypr.bindings.clipboard"] = nil
+require("default.hypr.bindings.clipboard")
+
+config["input.kb_layout"] = "fr,us"
+check_binds("AZERTY override", azerty_expected)
+
+config["input.kb_layout"] = "us"
+config["input.kb_variant"] = "dvorak"
+check_binds("Dvorak override after load", dvorak_expected)
 LUA
 
 # The keycode strings never regress to layout-resolved keysym names.
