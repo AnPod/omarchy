@@ -1297,6 +1297,16 @@ PY
   [[ $(jq -r '.todayPrompts' <<<"$result") == "2" ]] ||
     fail "Codex collector counts prompts in a rollout compressed to .jsonl.zst" "$result"
   pass "Codex collector counts a rollout compressed to .jsonl.zst"
+
+  # Codex publishes the compressed copy before deleting the plain one, and the
+  # reverse on resume, so both can sit side by side; it reads the plain one.
+  cp "$TEST_HOME/.codex/sessions/$(date +%Y/%m/%d)/rollout.jsonl" "${zst_session%.zst}"
+  result=$(HOME="$ZST_HOME" CODEX_HOME="$ZST_HOME/.codex" XDG_CACHE_HOME="$ZST_HOME/.cache" XDG_DATA_HOME="$ZST_HOME/.local/share" \
+    PATH="$ZST_HOME/bin:$PATH" "$collector" --force)
+
+  [[ $(jq -r '.todayTotalTokens' <<<"$result") == "210" ]] ||
+    fail "Codex collector counts a rollout once when its plain and compressed copies coexist" "$result"
+  pass "Codex collector counts a rollout once when its plain and compressed copies coexist"
 else
   skip "Codex collector counts a rollout compressed to .jsonl.zst (python3 lacks compression.zstd, needs 3.14)"
 fi
