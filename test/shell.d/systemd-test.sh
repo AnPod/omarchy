@@ -108,6 +108,8 @@ pass "new installs enable systemd-oomd"
 bt_restore="$ROOT/default/systemd/user/omarchy-bluetooth-power-restore.service"
 [[ -f $bt_restore ]] || fail "bluetooth power restore unit is missing"
 grep -Fx 'ExecStart=/usr/bin/omarchy-bluetooth-power restore' "$bt_restore" >/dev/null
+grep -Fx 'After=graphical-session.target' "$bt_restore" >/dev/null ||
+  fail "bluetooth power restore runs before the compositor's first input sync, whose rfkill-input unblock-all overrides a saved off"
 grep -F 'omarchy-bluetooth-power-restore.service' "$first_run_units" >/dev/null ||
   fail "first-run does not enable bluetooth power restore"
 pass "bluetooth power restore unit is enabled at first-run"
