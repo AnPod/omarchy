@@ -61,8 +61,14 @@ keep_pdf=false
 if [[ -n $pdf_handler ]]; then
   IFS=: read -ra pdf_data_dirs <<<"${XDG_DATA_HOME:-$HOME/.local/share}:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
   for pdf_data_dir in "${pdf_data_dirs[@]}"; do
-    [[ -f $pdf_data_dir/applications/$pdf_handler ]] || continue
-    grep -q '^MimeType=.*x-scheme-handler/http' "$pdf_data_dir/applications/$pdf_handler" || keep_pdf=true
+    pdf_entry=$pdf_data_dir/applications/$pdf_handler
+    if [[ ! -f $pdf_entry ]]; then
+      # A desktop ID turns subdirectories into dashes, so kde-viewer.desktop
+      # may live at applications/kde/viewer.desktop.
+      pdf_entry=$(find "$pdf_data_dir/applications" -mindepth 2 -type f -path "$pdf_data_dir/applications/${pdf_handler//-/[-/]}" -print -quit 2>/dev/null)
+    fi
+    [[ -n $pdf_entry ]] || continue
+    grep -q '^MimeType=.*x-scheme-handler/http' "$pdf_entry" || keep_pdf=true
     break
   done
 fi

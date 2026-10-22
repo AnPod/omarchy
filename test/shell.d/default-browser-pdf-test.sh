@@ -75,6 +75,20 @@ set_zen_as_browser
   fail "an installed PDF viewer keeps the type" "xdg-mime calls: $(cat "$OMARCHY_TEST_XDG_MIME_LOG")"
 pass "an installed PDF viewer keeps the type"
 
+# A viewer in an applications subdirectory is found by its desktop ID, where
+# kde-viewer.desktop names applications/kde/viewer.desktop, and stays.
+mkdir -p "$test_tmp/system/applications/kde"
+cat >"$test_tmp/system/applications/kde/viewer.desktop" <<'EOF'
+[Desktop Entry]
+Exec=viewer %U
+MimeType=application/pdf;
+EOF
+printf 'kde-viewer.desktop\n' >"$OMARCHY_TEST_PDF_HANDLER_FILE"
+set_zen_as_browser
+[[ ! -s $OMARCHY_TEST_XDG_MIME_LOG ]] ||
+  fail "a PDF viewer in an applications subdirectory keeps the type" "xdg-mime calls: $(cat "$OMARCHY_TEST_XDG_MIME_LOG")"
+pass "a PDF viewer in an applications subdirectory keeps the type"
+
 # A handler named in mimeapps.list whose entry is gone no longer holds the type.
 printf 'gone.desktop\n' >"$OMARCHY_TEST_PDF_HANDLER_FILE"
 set_zen_as_browser
