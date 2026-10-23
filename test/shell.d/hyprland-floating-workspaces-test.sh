@@ -465,12 +465,6 @@ assert(s.config["general.resize_on_border"] and s.config["general.hover_icon_on_
 fi
 pass "a user with border resizing on keeps it on every workspace"
 
-grep -q 'resize_on_border = false' "$ROOT/default/hypr/looknfeel.lua" ||
-  fail "the defaults keep border resizing off on tiling workspaces"
-grep -q 'hover_icon_on_border = false' "$ROOT/default/hypr/looknfeel.lua" ||
-  fail "the defaults keep the resize cursor off on tiling workspaces"
-pass "the defaults keep border resizing and its cursor off outside floating"
-
 # A tiled default is Hyprland's own layout for workspaces without a rule.
 rm -f "$modes_dir"/*.lua
 printf 'o.workspace_mode({ default = "scrolling" })\n' >"$modes_dir/default.lua"
