@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Document Viewer
+Exec=papers %U
+Icon=org.gnome.Papers
+NoDisplay=true
+Terminal=false
