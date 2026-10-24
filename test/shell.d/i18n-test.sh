@@ -620,3 +620,95 @@ if [[ -f /usr/share/i18n/SUPPORTED ]]; then
 else
   skip "every registry locale exists in glibc SUPPORTED"
 fi
+
+# A clock format's menu label is a preview of its action, and Qt's tokens are
+# strictly positional: `ddd d MMM` renders weekday, day, month in that order
+# in every locale, and AP puts the locale's own meridiem word at the token's
+# position. A translation that naturalises the sample's order or meridiem
+# promises text the bar can never render. The labels are written against one
+# sample instant, Sunday 2026-05-03 14:30:05 (ISO week 18), so the check
+# renders each entry's format the way the bar's toLocaleString does and
+# compares. Checked for the locales known to have naturalised their samples;
+# catalogs that kept the source order pass it unchanged.
+run_node_test <<'JS'
+const fs = require('fs')
+const MenuModel = requireFromRoot('shell/plugins/menu/MenuModel.js')
+
+const readJson = (rel) => JSON.parse(fs.readFileSync(path.join(root, 'default/i18n', rel), 'utf8'))
+const menuItems = MenuModel.parseMenuJsonc(fs.readFileSync(path.join(root, 'default/omarchy/omarchy-menu.jsonc'), 'utf8'))
+const clockItems = menuItems.filter((item) => item.id.startsWith('appearance.top-bar.indicators.clock.') && item.action)
+
+const localeNames = {
+  'zh-CN': { ddd: '周日', dddd: '星期日', MMM: '5月', MMMM: '五月', am: '上午', pm: '下午' },
+  'ja': { ddd: '日', dddd: '日曜日', MMM: '5月', MMMM: '5月', am: '午前', pm: '午後' },
+  'ko': { ddd: '일', dddd: '일요일', MMM: '5월', MMMM: '5월', am: '오전', pm: '오후' },
+}
+const sample = { d: '3', dd: '03', M: '5', MM: '05', h: '2', H: '14', HH: '14', m: '30', mm: '30', s: '5', ss: '05', w: '18', ww: '18', yy: '26', yyyy: '2026' }
+
+// A faithful positional render of one Qt format string for the sample instant:
+// quoted spans are literals ('' an escaped quote), whitespace collapses to one
+// space (the bar draws a vertical format's lines; the labels join them), and a
+// run of one letter is that field with the run's width.
+function renderQtFormat(format, names) {
+  const fields = { ...sample, ddd: names.ddd, dddd: names.dddd, MMM: names.MMM, MMMM: names.MMMM }
+  let out = ''
+  let i = 0
+  while (i < format.length) {
+    const ch = format[i]
+    if (ch === "'") {
+      if (format[i + 1] === "'") { out += "'"; i += 2; continue }
+      const end = format.indexOf("'", i + 1)
+      if (end < 0) throw new Error(`unterminated quote in format: ${format}`)
+      out += format.slice(i + 1, end)
+      i = end + 1
+      continue
+    }
+    if (/\s/.test(ch)) {
+      out += ' '
+      while (i < format.length && /\s/.test(format[i])) i++
+      continue
+    }
+    if (!/[a-z]/i.test(ch)) {
+      out += ch
+      i++
+      continue
+    }
+    if (format.startsWith('AP', i)) {
+      out += names.pm
+      i += 2
+      continue
+    }
+    const run = format.slice(i).match(new RegExp(`^${ch}+`, 'i'))[0]
+    const value = fields[run]
+    if (value === undefined) throw new Error(`unhandled token "${run}" in format: ${format}`)
+    out += value
+    i += run.length
+  }
+  return out
+}
+
+const formatOf = (action) => {
+  const match = action.match(/omarchy-bar set omarchy\.clock (?:format|verticalFormat) (.+)$/)
+  if (!match) return null
+  let spec = match[1].trim()
+  const quoted = spec.match(/^\$?'(.*)'$/s)
+  if (quoted) {
+    spec = quoted[1].replace(/\\n/g, ' ').replace(/\\'/g, "'")
+  } else {
+    spec = spec.replace(/^"(.*)"$/s, '$1')
+  }
+  return spec
+}
+
+for (const [code, names] of Object.entries(localeNames)) {
+  const catalog = readJson(`${code}/menu.json`)
+  const mismatches = []
+  for (const item of clockItems) {
+    const format = formatOf(item.action)
+    if (!format || !catalog[item.id]) continue
+    const expected = renderQtFormat(format, names)
+    if (catalog[item.id].label !== expected) mismatches.push(`${item.id}: label ${JSON.stringify(catalog[item.id].label)} but the format renders ${JSON.stringify(expected)}`)
+  }
+  assert(mismatches.length === 0, `${code} clock format labels render what their formats render`, mismatches.join('\n'))
+}
+JS
