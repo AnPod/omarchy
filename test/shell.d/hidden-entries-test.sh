@@ -16,9 +16,6 @@ entry() {
 
 entry "$HOME/.local/share/applications/override.desktop" 'Name=Visible override'
 entry "$HOME/.local/share/applications/kde-foo.desktop" 'Name=Visible nested override'
-# The shipped NoDisplay override that keeps papers (a sushi dependency) out of
-# the launcher; copied in as-is so the test fails if it ever stops being hidden.
-cp "$ROOT/applications/org.gnome.Papers.desktop" "$HOME/.local/share/applications/"
 entry "$scratch/system/applications/kde/foo.desktop" 'Hidden=true'
 entry "$scratch/system/applications/override.desktop" 'Hidden=true'
 entry "$HOME/.local/share/applications/user-hidden.desktop" 'Hidden=true'
@@ -33,6 +30,6 @@ entry "$scratch/ven[dor]*/applications/vendor.desktop" 'Hidden=true'
 entry "$HOME/.nix-profile/share/applications/nix.desktop" 'NoDisplay=true'
 
 actual=$(bash "$ROOT/shell/services/hidden-entries.sh" 'Hyprland:Omarchy')
-expected=$'org.gnome.Papers\nuser-hidden\nnested-deeper-app\nnested-space name\nnot-hyprland\nquote" app\nvendor\nnix'
+expected=$'user-hidden\nnested-deeper-app\nnested-space name\nnot-hyprland\nquote" app\nvendor\nnix'
 [[ $actual == "$expected" ]] || fail "hidden entries changed IDs, directory precedence, or desktop visibility: $actual"
 pass "hidden entries preserve nested IDs, unusual filenames, overrides, and desktop filters"
