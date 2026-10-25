@@ -113,7 +113,7 @@ rc=$?
 if grep -F 'Snapshots can be selected during boot.' <<<"$out" >/dev/null; then
   fail "snapshot create hides the bootable claim when the sync rejects the entry"
 fi
-grep -F 'limine-snapper-sync' "$snapshot_tmp/err.log" >/dev/null ||
+grep -F 'journalctl -t limine-snapper-sync' "$snapshot_tmp/err.log" >/dev/null ||
   fail "snapshot create warns and points at the sync journal when the sync fails"
 ((rc == 0)) || fail "a failed boot-menu sync warns without failing the update"
 pass "snapshot create warns instead of claiming success when the sync fails"
