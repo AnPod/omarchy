@@ -25,6 +25,8 @@ run_enable() {
     omarchy-plugin-enable "$@"
 }
 
+unset OMARCHY_SHELL_IPC_TIMEOUT
+
 run_enable omarchy.active-window --section right >/dev/null
 grep -Fqx 'shell enablePlugin omarchy.active-window {"section":"right"}' "$calls" ||
   fail "plugin enable did not combine activation and placement"

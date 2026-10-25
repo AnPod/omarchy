@@ -215,6 +215,7 @@ exit 0
 SH
 chmod +x "$TMPDIR/bin-slow-enable/omarchy-shell"
 
+unset OMARCHY_SHELL_IPC_TIMEOUT
 if HOME="$TMPDIR/home" USER=tester OMARCHY_PATH="$ROOT" \
   PATH="$TMPDIR/bin-slow-enable:$ROOT/bin:$PATH" \
   FAKE_CALLS="$CALLS" OMARCHY_TEST_CALLS="$enable_calls" OMARCHY_TEST_ROOT="$ROOT" \
