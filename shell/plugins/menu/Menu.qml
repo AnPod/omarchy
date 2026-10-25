@@ -1199,6 +1199,10 @@ Item {
   property var whenResults: ({})       // id → true|false (allow visibility)
   property var checkedResults: ({})    // id → true|false (show ✓)
   property var disabledResults: ({})   // id → true|false (dim, skip cursor)
+  property var actionResults: ({})     // id → true|false (command exists)
+  // Warned once per id: an open menu re-evaluates the same rows, and the
+  // journal should hear about a dead action once, not once per open.
+  property var warnedDeadActions: ({})
   property bool guardsPending: false
 
   function evaluateGuards() {
@@ -1219,6 +1223,7 @@ Item {
       root.whenResults = ({})
       root.checkedResults = ({})
       root.disabledResults = ({})
+      root.actionResults = ({})
       return
     }
     guardProc.collected = ""
@@ -1245,6 +1250,7 @@ Item {
       var nextWhen = ({})
       var nextChecked = ({})
       var nextDisabled = ({})
+      var nextActions = ({})
       var lines = guardProc.collected.split("\n")
       for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trim()
@@ -1260,10 +1266,21 @@ Item {
         if (tag === "w") nextWhen[id] = value
         else if (tag === "c") nextChecked[id] = value
         else if (tag === "d") nextDisabled[id] = value
+        else if (tag === "a") nextActions[id] = value
       }
       root.whenResults = nextWhen
       root.checkedResults = nextChecked
       root.disabledResults = nextDisabled
+      root.actionResults = nextActions
+      // A dead action used to say nothing at all: the row closed the menu and
+      // nothing ran, with nothing in the journal saying why. Name the row and
+      // the command that is gone, once per row.
+      var dead = MenuModel.deadActionIds(nextActions)
+      for (var d = 0; d < dead.length; d++) {
+        if (root.warnedDeadActions[dead[d]]) continue
+        root.warnedDeadActions[dead[d]] = true
+        console.warn(MenuModel.deadActionWarning(root.items[dead[d]]))
+      }
       if (root.opened) root.rebuildDisplay()
       // Run the evaluation that had to stand aside. Deferred by a turn so the
       // process is settled before its command is set again.
