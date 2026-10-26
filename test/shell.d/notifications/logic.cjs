@@ -269,6 +269,15 @@ for (const body of ['Your verification code is 938271', 'Your code is 938 271', 
     [{ app: 'omarchy-action', urgency: 0 }, true, ''],
     [{ app: 'Google', urgency: 1, code: '482913' }, true, ''],
   ]) assert.equal(Delivery.quietReason(row, dnd), expected, JSON.stringify([row, dnd]))
+  // A browser relaying a web push claims critical with no expiry; for how long
+  // the card stays that counts as normal. A sender's own critical waits.
+  for (const [app, urgency, stays] of [
+    ['Chromium', 2, 1], ['chromium', 2, 1], ['Google Chrome', 2, 1], ['Firefox', 2, 1],
+    ['Mozilla Firefox', 2, 1], ['Brave', 2, 1], ['Brave Origin', 2, 1], ['Microsoft Edge', 2, 1],
+    ['Vivaldi', 2, 1], ['Zen Browser', 2, 1], ['Helium', 2, 1],
+    ['Slack', 2, 2], ['notify-send', 2, 2], ['omarchy-action', 2, 2], [undefined, 2, 2],
+    ['Google Chrome', 1, 1], ['Google Chrome', 0, 0],
+  ]) assert.equal(Delivery.expiryUrgency(app === undefined ? {} : { app }, urgency), stays, JSON.stringify([app, urgency]))
   // The number keys count buttons in the order the card draws them: codes, --action, the sender's.
   const deeds = Delivery.deeds({ codes: '482913 771204', execActions: JSON.stringify([{ label: 'Edit', argv: ['omasnap'] }]) },
                                [{ id: 'join', text: 'Join call' }])
@@ -707,6 +716,20 @@ for (const holding of [false, true]) { // Silencing closes a muted update; only 
   s.drainCallLater()
   assert.equal(s.toasts.get(0).senderPid, 1234)
   assert.equal(s.toasts.count, 1)
+}
+
+{ // A browser's critical stands in for a web push whose own urgency never
+  // travels: the popup expires like a normal card, while still drawing as one.
+  const s = newCapacityScope()
+  const push = s.fakeNotification(1, 'Uploaded', 2)
+  push.appName = 'Google Chrome'
+  s.admit(push)
+  assert.equal(s.toasts.get(0).urgency, 2)
+  assert.equal(s.toasts.get(0).duration, s.normalDuration, 'a browser web push does not wait forever')
+  const own = s.fakeNotification(2, 'Backup failed', 2)
+  s.admit(own)
+  assert.equal(s.toasts.get(0).duration, 0, "the sender's own critical still waits for you")
+  assert.equal(s.toasts.get(1).duration, s.normalDuration)
 }
 
 const storedRows = count => Array.from({ length: count }, (_, i) => ({ key: 'stored-' + i, summary: 'Stored ' + i }))
