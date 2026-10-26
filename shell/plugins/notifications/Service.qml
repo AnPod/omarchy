@@ -1327,13 +1327,12 @@ Item {
         readonly property int motionInset: Style.spacing.sm
         width: service.notificationWidth + motionInset
                + (service.deckLeft ? surface.margins.left : surface.margins.right)
-        height: deck.y + deck.height + (service.deckBottom ? 0 : motionInset)
+        height: deck.height + motionInset
         clip: true
 
         Item {
           id: deck
           x: service.deckLeft ? surface.margins.left : clipper.motionInset
-          y: service.deckBottom ? clipper.motionInset : 0
           width: service.notificationWidth
           height: service.deckHeight
 
