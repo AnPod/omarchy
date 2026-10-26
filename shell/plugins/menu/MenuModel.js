@@ -593,11 +593,20 @@ function actionCommandToken(action) {
   return command.split(" ")[0]
 }
 
-function deadActionIds(results) {
+function deadActionIds(results, whenResults, checkedItems, currentItems) {
   var ids = []
   var keys = Object.keys(results || {})
-  for (var i = 0; i < keys.length; i++)
-    if (results[keys[i]] === false) ids.push(keys[i])
+  for (var i = 0; i < keys.length; i++) {
+    var id = keys[i]
+    if (results[id] !== false) continue
+    if (whenResults && whenResults[id] === false) continue
+    if (checkedItems || currentItems) {
+      var checked = checkedItems && checkedItems[id]
+      var current = currentItems && currentItems[id]
+      if (!checked || !current || checked.action !== current.action) continue
+    }
+    ids.push(id)
+  }
   return ids
 }
 

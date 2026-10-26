@@ -138,8 +138,24 @@ assert(!only.includes('__omarchy_pkg_db') && !only.includes('pacman'), 'an actio
 assert(!only.includes('__omarchy_read_'), 'an action-only batch captures no readers')
 
 // What the menu does with the answers: warn once per dead row, naming the
-// row, its id, and the command that is gone.
+// row, its id, and the command that is gone, while skipping rows that `when:`
+// hid and answers from a batch whose row has already changed.
 assertDeepEqual(menu.deadActionIds({ a: true, b: false, c: false }), ['b', 'c'], 'dead action ids lists what came back missing')
+assertDeepEqual(
+  menu.deadActionIds({ a: false, b: false, c: false }, { a: false, b: true }),
+  ['b', 'c'],
+  'dead action ids skips rows that when: hid'
+)
+assertDeepEqual(
+  menu.deadActionIds(
+    { same: false, fixed: false, dropped: false },
+    {},
+    { same: { action: 'gone' }, fixed: { action: 'gone' }, dropped: { action: 'gone' } },
+    { same: { action: 'gone' }, fixed: { action: 'replacement' } }
+  ),
+  ['same'],
+  'dead action ids discards stale answers for rows whose action changed or disappeared'
+)
 const warning = menu.deadActionWarning({ id: 'system.reboot', label: 'Reboot', action: 'omarchy-system-reboot' })
 assert(
   warning.includes('Reboot') && warning.includes('system.reboot') && warning.includes('omarchy-system-reboot'),
@@ -297,9 +313,10 @@ action_script=$(node -e '
 ')
 printf '#!/bin/bash\nexit 0\n' >"$stub_dir/omarchy-menu-action-stub"
 chmod +x "$stub_dir/omarchy-menu-action-stub"
-action_result=$(XDG_RUNTIME_DIR="" PATH="$stub_dir:$PATH" bash -c "$action_script"; echo "exit:$?")
-[[ $action_result == $'hit:a:1\nmiss:a:0\nexit:0' ]] ||
-  fail "the batch answers for plain actions through real bash" "got: $action_result"
+action_status=0
+action_result=$(XDG_RUNTIME_DIR="" PATH="$stub_dir:$PATH" bash -c "$action_script") || action_status=$?
+[[ $(sort <<<"$action_result") == $'hit:a:1\nmiss:a:0' ]] && (( action_status == 0 )) ||
+  fail "the batch answers for plain actions through real bash" "status=$action_status got: $action_result"
 pass "the batch answers whether each plain action's command exists"
 
 

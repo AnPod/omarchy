@@ -1226,6 +1226,7 @@ Item {
       root.actionResults = ({})
       return
     }
+    guardProc.items = root.items
     guardProc.collected = ""
     guardProc.command = ["bash", "-lc", script]
     guardProc.running = true
@@ -1233,6 +1234,7 @@ Item {
 
   Process {
     id: guardProc
+    property var items: ({})
     property string collected: ""
     stdout: SplitParser {
       onRead: function(data) { guardProc.collected += data + "\n" }
@@ -1275,7 +1277,7 @@ Item {
       // A dead action used to say nothing at all: the row closed the menu and
       // nothing ran, with nothing in the journal saying why. Name the row and
       // the command that is gone, once per row.
-      var dead = MenuModel.deadActionIds(nextActions)
+      var dead = MenuModel.deadActionIds(nextActions, nextWhen, guardProc.items, root.items)
       for (var d = 0; d < dead.length; d++) {
         if (root.warnedDeadActions[dead[d]]) continue
         root.warnedDeadActions[dead[d]] = true
