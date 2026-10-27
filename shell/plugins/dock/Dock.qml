@@ -170,10 +170,22 @@ Item {
     if (entry && root.appLibrary) root.appLibrary.launch(entry.id, entry.name)
   }
 
+  // Opening an app from the app grid brings a running one forward instead of
+  // starting another, the same as a click on it in the dock. An app the dock
+  // does not show yet goes through the dock's launch path, which tracks it,
+  // so a second open before its first window shows does not start another.
+  function openEntry(entry) {
+    if (!entry || !entry.id) return
+    root.activate(root.itemFor(entry.id) || { key: entry.id, windows: [] })
+  }
+
+  // An app still starting up is not launched again: a slow app, such as a
+  // web app, would otherwise open one copy per click until its first window
+  // shows. The launch record ages out on its own when no window ever comes.
   function activate(item) {
     if (!item) return
     if (item.windows.length === 0) {
-      root.launch(item)
+      if (!root.isLaunching(item.key)) root.launch(item)
       return
     }
     var monitor = Hyprland.focusedMonitor
