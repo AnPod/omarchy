@@ -129,7 +129,8 @@ function stubDock() {
     launches: {},
     itemFor(key) { return d.itemsByKey[key] || null },
     isLaunching(key) { return d.launches[key] !== undefined },
-    launch(item) { d.calls.launched.push(item.key); d.launches[item.key] = { at: Date.now(), windows: item.windows.length } },
+    isStarting(key) { return d.launches[key] !== undefined && d.launches[key].starting },
+    launch(item) { d.calls.launched.push(item.key); d.launches[item.key] = { at: Date.now(), windows: item.windows.length, starting: item.windows.length === 0 } },
     bringForward(window) { d.calls.forward.push(window.address) },
     activate(item) { activate.call(null, d, Hyprland, dock, item) }
   }
@@ -137,10 +138,19 @@ function stubDock() {
 }
 
 const clickingDock = stubDock()
-clickingDock.launches.youtube = { at: Date.now(), windows: 0 }
+clickingDock.launches.youtube = { at: Date.now(), windows: 0, starting: true }
 activate(clickingDock, Hyprland, dock, { key: 'youtube', windows: [] })
 assertEqual(clickingDock.calls.launched.length, 0,
   'dock does not start an app a second time while its first launch is still opening')
+
+// A New Window request records the windows the app already has. When those
+// close before the new one shows, the record outlives them, and clicking the
+// app in the dock must start it rather than wait out the record.
+const newWindowDock = stubDock()
+newWindowDock.launches.chromium = { at: Date.now(), windows: 1, starting: false }
+activate(newWindowDock, Hyprland, dock, { key: 'chromium', windows: [] })
+assertEqual(newWindowDock.calls.launched.length, 1,
+  'dock starts an app again while only a New Window request is pending')
 
 const freshDock = stubDock()
 activate(freshDock, Hyprland, dock, { key: 'youtube', windows: [] })

@@ -126,6 +126,14 @@ Item {
     return root.launches[key] !== undefined
   }
 
+  // Only a launch of an app with no window is one still starting up. A New
+  // Window request is recorded with the app's current windows, and must not
+  // hold back a later activate when those close before the new one shows.
+  function isStarting(key) {
+    var launch = root.launches[key]
+    return launch !== undefined && launch.starting
+  }
+
   function settleLaunches() {
     var next = {}
     var changed = false
@@ -160,8 +168,9 @@ Item {
   function launch(item) {
     var entry = entryFor(item)
     if (!entry) return
+    var windows = item.windows.length
     var next = Object.assign({}, root.launches)
-    next[item.key] = { at: Date.now(), windows: item.windows.length }
+    next[item.key] = { at: Date.now(), windows: windows, starting: windows === 0 }
     root.launches = next
     root.launchEntry(entry)
   }
@@ -185,7 +194,7 @@ Item {
   function activate(item) {
     if (!item) return
     if (item.windows.length === 0) {
-      if (!root.isLaunching(item.key)) root.launch(item)
+      if (!root.isStarting(item.key)) root.launch(item)
       return
     }
     var monitor = Hyprland.focusedMonitor
