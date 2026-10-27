@@ -730,6 +730,16 @@ for (const holding of [false, true]) { // Silencing closes a muted update; only 
   s.admit(own)
   assert.equal(s.toasts.get(0).duration, 0, "the sender's own critical still waits for you")
   assert.equal(s.toasts.get(1).duration, s.normalDuration)
+  // A restart reads the saved rows back: their urgency is unchanged, so the
+  // browser push must keep its finite lifetime (and still draw critical),
+  // not become permanent the way a plain critical read would.
+  const restart = newCapacityScope()
+  restart.loadLive(Store.serialise(s.liveEntries))
+  restart.drainCallLater()
+  assert.equal(restart.toasts.get(0).summary, 'Backup failed')
+  assert.equal(restart.toasts.get(0).duration, 0, "the sender's own critical still waits after a restart")
+  assert.equal(restart.toasts.get(1).urgency, 2, 'the restored push still draws as critical')
+  assert.equal(restart.toasts.get(1).duration, Store.RESTORE_GRACE, 'a restored browser push does not wait forever')
 }
 
 const storedRows = count => Array.from({ length: count }, (_, i) => ({ key: 'stored-' + i, summary: 'Stored ' + i }))

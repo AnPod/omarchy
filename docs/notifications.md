@@ -38,7 +38,7 @@ A click tries, in order: the card's `omarchy-exec-argv` command; the sender's `d
 
 The shell keeps its state in `~/.local/state/omarchy/notifications/` (0700), three JSON files it reads with `FileView` once at startup and rewrites whole:
 
-- `live.json`: the rows on screen, oldest first, put back after a shell restart with a 20s grace (critical ones still wait). At most 100.
+- `live.json`: the rows on screen, oldest first, put back after a shell restart with a 20s grace (critical ones still wait, a browser's excepted as on arrival). At most 100.
 - `history.json`: closed rows, newest first, each with `closed_ts` and `closed_reason`. Capped at 100 entries and 24 hours. Rows whose reason is `silenced` were held back by Do Not Disturb.
 - `quiet.json`: `{ dnd }`.
 
