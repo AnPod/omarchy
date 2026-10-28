@@ -33,6 +33,15 @@ setup_scenario() {
 printf '%s\n' "\$*" >>"$notify_log"
 SH
   chmod +x "$mock_bin/omarchy-notification-send"
+
+  # The script resets the keyboard layout through Hyprland IPC; record the
+  # call instead of touching the running session.
+  cat >"$mock_bin/hyprctl" <<SH
+#!/bin/bash
+
+printf 'hyprctl %s\n' "\$*" >>"$call_log"
+SH
+  chmod +x "$mock_bin/hyprctl"
 }
 
 mock_logind_window() {
@@ -96,9 +105,18 @@ pass "sleep lock succeeds once the session reports secure"
   fail "sleep lock requests the session lock first" "first call: ${calls[0]}"
 pass "sleep lock requests the session lock first"
 
-[[ ${calls[1]} == "clamshell" && ${calls[2]} == "shell lock status" ]] ||
-  fail "sleep lock checks security after clamshell reconciliation"
-pass "sleep lock checks security after clamshell reconciliation"
+[[ ${calls[1]} == "clamshell" && ${calls[2]} == "hyprctl switchxkblayout all 0" && ${calls[3]} == "shell lock status" ]] ||
+  fail "sleep lock resets the layout after clamshell sync, then checks security" \
+    "calls: ${calls[*]:0:5}"
+pass "sleep lock resets the layout after clamshell sync, then checks security"
+
+resets=0
+for call in "${calls[@]}"; do
+  [[ $call == "hyprctl switchxkblayout all 0" ]] && (( ++resets ))
+done
+(( resets == 1 )) ||
+  fail "sleep lock resets the keyboard layout exactly once" "resets: $resets"
+pass "sleep lock resets the keyboard layout exactly once"
 
 # The stalled sync only finishes if the sleep lock waited it out.
 [[ ! -e $call_log.clamshell-done ]] ||
