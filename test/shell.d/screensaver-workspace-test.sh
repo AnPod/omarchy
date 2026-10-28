@@ -108,3 +108,53 @@ LUA
 [[ $fallback == "special:screensaver silent" ]] ||
   fail "a screensaver mapped again as it closes stays off the regular workspaces" "workspace rule: ${fallback:-none}"
 pass "a screensaver mapped again as it closes stays off the regular workspaces"
+
+# A signal arriving while the screensaver's exit handler runs must not re-enter it: bash 5.3 runs
+# pending traps between commands inside a trap handler, so an unguarded handler recurses once per
+# pending signal until the stack overflows (#16807). activewindow reports another class, so the
+# run reaches the exit handler through the focus check on its first loop iteration, and the
+# handler's restore arrives as a SIGHUP from inside the running handler, the way a signal burst
+# mid-dismiss does.
+cat >"$tmpdir/bin/hyprctl" <<'SH'
+#!/bin/bash
+printf '%s\n' "$*" >>"$TEST_DIR/calls"
+case "$*" in
+  *activewindow*)
+    printf '{"class":"not-the-screensaver"}\n'
+    ;;
+  *"invisible = false"*)
+    kill -HUP "$PPID" 2>/dev/null
+    ;;
+esac
+SH
+cat >"$tmpdir/bin/ttfx" <<'SH'
+#!/bin/bash
+echo $$ >>"$TEST_DIR/ttfx.pids"
+exec sleep 30
+SH
+printf '#!/bin/bash\nexit 0\n' >"$tmpdir/bin/pgrep"  # a ttfx is always running, so the loop reaches the focus check
+printf '#!/bin/bash\nexit 0\n' >"$tmpdir/bin/pkill"  # the test cleans the ttfx stubs up itself
+printf '#!/bin/bash\ncase ${1:-} in size) echo "50 200";; esac\n' >"$tmpdir/bin/stty"
+printf '#!/bin/bash\necho /dev/stubtt\n' >"$tmpdir/bin/tty"
+chmod +x "$tmpdir/bin/"*
+
+: >"$tmpdir/calls"
+: >"$tmpdir/ttfx.pids"
+status=0
+PATH="$tmpdir/bin:$PATH" TEST_DIR="$tmpdir" timeout 60 "$ROOT/bin/omarchy-screensaver" \
+  </dev/null >"$tmpdir/screensaver.out" 2>&1 || status=$?
+while read -r pid; do
+  kill "$pid" 2>/dev/null || true
+done <"$tmpdir/ttfx.pids"
+
+(( status != 124 )) ||
+  fail "the screensaver exits cleanly through a SIGHUP arriving mid-handler" \
+    "timed out; the exit handler recursed on every SIGHUP it sent itself"
+(( status == 0 )) ||
+  fail "the screensaver exits cleanly through a SIGHUP arriving mid-handler" \
+    "exit status $status; the exit handler re-entered itself until the stack gave out"
+handler_runs=$(grep -cF 'invisible = false' "$tmpdir/calls" || true)
+(( handler_runs == 1 )) ||
+  fail "the exit handler runs once, not once per re-entry" \
+    "hyprctl ran the handler's restore $handler_runs times"
+pass "the screensaver exits cleanly through a SIGHUP arriving mid-handler"
