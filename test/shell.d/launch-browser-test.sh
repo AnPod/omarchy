@@ -125,7 +125,7 @@ launch --private
 grep -F -- 'chromium --incognito' "$launch_log" >/dev/null || fail "a private launch passes the browser's private flag" "$(cat "$launch_log")"
 pass "a private launch passes the browser's private flag without executing it"
 
-# The name match has to keep telling the Firefox and Edge flag variants apart.
+# The name match has to keep telling the Firefox, Zen and Edge flag variants apart.
 cat >"$test_home/.local/share/applications/firefox.desktop" <<'EOF'
 [Desktop Entry]
 Exec=firefox %u
@@ -142,10 +142,18 @@ cat >"$mock_bin/microsoft-edge-stable" <<'SH'
 #!/bin/bash
 printf '%s\n' "edge $*" >>"$OMARCHY_TEST_BROWSER_CALLED"
 SH
-chmod +x "$mock_bin/firefox" "$mock_bin/microsoft-edge-stable"
+cat >"$test_home/.local/share/applications/zen.desktop" <<'EOF'
+[Desktop Entry]
+Exec=zen-browser %u
+EOF
+cat >"$mock_bin/zen-browser" <<'SH'
+#!/bin/bash
+printf '%s\n' "zen $*" >>"$OMARCHY_TEST_BROWSER_CALLED"
+SH
+chmod +x "$mock_bin/firefox" "$mock_bin/microsoft-edge-stable" "$mock_bin/zen-browser"
 mkdir -p "$XDG_CONFIG_HOME"
 
-for variant in firefox:--private-window microsoft-edge:--inprivate; do
+for variant in firefox:--private-window zen:--private-window microsoft-edge:--inprivate; do
   entry=${variant%%:*} flag=${variant#*:}
   cat >"$XDG_CONFIG_HOME/mimeapps.list" <<EOF
 [Default Applications]
@@ -158,7 +166,7 @@ EOF
     fail "a private launch of $entry passes $flag" "$(cat "$launch_log")"
 done
 rm -f "$XDG_CONFIG_HOME/mimeapps.list"
-pass "a private launch picks the Firefox and Edge flag variants by name"
+pass "a private launch picks the Firefox, Zen and Edge flag variants by name"
 
 # The resolver reads every XDG data dir, so the launcher has to read Exec=
 # from the same ones; a browser outside ~/.local and /usr used to resolve and

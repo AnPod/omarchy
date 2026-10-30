@@ -31,7 +31,7 @@ fi
 private_flag="--private"
 if [[ " $* " == *" --private "* ]]; then
   case $(basename "$browser_exec") in
-    *firefox* | librewolf* | waterfox* | floorp*)
+    *firefox* | librewolf* | waterfox* | floorp* | zen*)
       private_flag="--private-window"
       ;;
     *edge*)
