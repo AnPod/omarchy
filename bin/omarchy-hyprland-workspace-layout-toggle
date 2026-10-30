@@ -31,9 +31,11 @@ fi
 # Named workspaces report a negative id, and Hyprland reads a leading "-" as a
 # selector relative to the current workspace: targeting one lands on workspace 1
 # and reconfigures that instead. Special workspaces are reached by their
-# "special:name" reference instead; a name with a slash or a space in it has no
-# safe state file, so it is left alone like the named ones.
-[[ $ACTIVE_WORKSPACE =~ ^[0-9]+$ || $ACTIVE_WORKSPACE =~ ^special:[^/[:space:]]+$ ]] || exit 1
+# "special:name" reference instead. Only letters, digits, "_" and "-" are safe
+# in that name: it goes into a Lua string here, and the saved file is loaded by
+# require, which reads a dot as a directory separator. Any other name is left
+# alone like the named ones.
+[[ $ACTIVE_WORKSPACE =~ ^[0-9]+$ || $ACTIVE_WORKSPACE =~ ^special:[A-Za-z0-9_-]+$ ]] || exit 1
 MODES_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/omarchy/workspace-layouts"
 MODE_FILE="$MODES_DIR/$ACTIVE_WORKSPACE.lua"
 

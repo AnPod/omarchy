@@ -568,17 +568,33 @@ env HOME="$home_dir" XDG_STATE_HOME="$home_dir/.local/state" \
   fail "back from dwindle a special workspace goes to scrolling"
 pass "a special workspace cycles backwards through the tiled layouts"
 
-# A special workspace name with a slash in it has no safe state file, so it is
-# left alone like a named one.
-: >"$log_file"
-if toggle HYPRCTL_MONITORS='[{"focused":true,"specialWorkspace":{"id":0,"name":"special:../evil"}}]' 2>/dev/null; then
-  fail "a special workspace whose name cannot name a state file is refused"
-fi
-if grep -q workspace_mode "$log_file"; then
-  fail "a refused special workspace applies nothing" "$(cat "$log_file")"
-fi
-if [[ -e $home_dir/.local/state/omarchy/evil.lua ]]; then
+# A special workspace name that cannot safely name a state file is left alone
+# like a named one: a slash escapes the state directory, a dot breaks the
+# require that loads the file on reload, and a quote or a backslash breaks the
+# Lua string the mode is applied with.
+for unsafe_name in 'special:../evil' 'special:notes.work' 'special:notes"today' 'special:notes\today'; do
+  : >"$log_file"
+  unsafe_monitors=$(jq -cn --arg name "$unsafe_name" '[{focused: true, specialWorkspace: {id: 0, name: $name}}]')
+  if toggle HYPRCTL_MONITORS="$unsafe_monitors" 2>/dev/null; then
+    fail "a special workspace whose name cannot name a state file is refused" "$unsafe_name"
+  fi
+  if grep -q workspace_mode "$log_file"; then
+    fail "a refused special workspace applies nothing" "$unsafe_name: $(cat "$log_file")"
+  fi
+done
+if [[ -e $home_dir/.local/state/omarchy/evil.lua ]] || compgen -G "$home_dir/.local/state/omarchy/workspace-layouts/special:notes*" >/dev/null; then
   fail "a refused special workspace writes no state file"
 fi
 pass "a special workspace with an unsafe name is left alone"
+
+# A floating default never reaches special workspaces, so one without a mode of
+# its own reports the tiled layout Hyprland shows on it rather than floating;
+# otherwise a scrolling scratchpad would be toggled onto scrolling again.
+rm -f "$special_file"
+printf 'o.workspace_mode({ default = "floating" })\n' >"$home_dir/.local/state/omarchy/workspace-layouts/default.lua"
+current=$(HYPRCTL_SPECIAL_LAYOUT=scrolling run_current special:scratchpad)
+[[ $current == "scrolling" ]] ||
+  fail "a special workspace without a mode reports its live tiled layout" "got: $current"
+rm -f "$home_dir/.local/state/omarchy/workspace-layouts/default.lua"
+pass "a special workspace without a mode ignores a floating default"
 
