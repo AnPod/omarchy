@@ -66,15 +66,30 @@ fi
 # limine-mkinitcpio carries on past a kernel it could not build, a full boot
 # partition for one, and still exits 0. Done means a boot entry has the
 # parameter: without that the migration stays pending and the next update
-# tries again. A menu with no command lines in it (they are inside the boot
-# images then) has nothing to look at, and is taken at its word.
+# tries again.
 menu_cmdlines=$(sudo grep -E '^[[:space:]]*cmdline:' "$limine_conf" 2>/dev/null) || menu_cmdlines=""
+checked=0
 built=0
 while IFS= read -r menu_cmdline; do
+  [[ -n $menu_cmdline ]] || continue
+  checked=1
   ! carries_param "${menu_cmdline#*cmdline:}" || built=1
 done <<<"$menu_cmdlines"
 
-if [[ -n $menu_cmdlines ]] && ((!built)); then
+# A menu with no command lines in it boots UKIs, which carry theirs in a
+# .cmdline section; read it from each UKI the menu points at, on the ESP that
+# holds limine.conf.
+if [[ -z $menu_cmdlines ]]; then
+  ukis=$(sudo grep -o 'boot():/EFI/Linux/[^#[:space:]]*\.efi' "$limine_conf" 2>/dev/null | sort -u) || ukis=""
+  while IFS= read -r uki; do
+    [[ -n $uki ]] || continue
+    checked=1
+    uki_cmdline=$(sudo objcopy -O binary --only-section=.cmdline "$(dirname "$limine_conf")/${uki#boot():/}" /dev/stdout 2>/dev/null | tr -d '\0') || uki_cmdline=""
+    ! carries_param "$uki_cmdline" || built=1
+  done <<<"$ukis"
+fi
+
+if ((checked && !built)); then
   # Unless the Limine config leaves it out of every kernel the rebuild builds,
   # which no rebuild can change: a plain KERNEL_CMDLINE[default]= in
   # /etc/default/limine, as limine-entry-tool's README suggests, or per-kernel
