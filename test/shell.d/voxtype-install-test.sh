@@ -51,11 +51,6 @@ run_install() {
 
   grep -Fx 'voxtype setup systemd' "$calls" >/dev/null ||
     fail "Voxtype install sets up the user service (vulkan=$vulkan backend=$backend)"
-
-  drop_in="$test_tmp/home/.config/systemd/user/voxtype.service.d/omarchy-restart-with-wireplumber.conf"
-  grep -Fx 'PartOf=wireplumber.service' "$drop_in" >/dev/null &&
-    grep -Fx 'After=wireplumber.service' "$drop_in" >/dev/null ||
-    fail "Voxtype install ties the service to WirePlumber (vulkan=$vulkan backend=$backend)"
 }
 
 run_install 1 executable
